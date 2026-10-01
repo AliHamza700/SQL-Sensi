@@ -4,7 +4,7 @@
   "private": true,
   "description": "AI-Powered Natural Language SQL & Data Analysis Desktop Assistant",
   "author": "",
-  "main": "electron/main.js",
+  "main": "electron-out/electron/src/main.js",
   "scripts": {
     "dev": "concurrently \"pnpm dev:next\" \"pnpm dev:electron\"",
     "dev:next": "next dev",

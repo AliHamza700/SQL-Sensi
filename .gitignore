@@ -8,6 +8,7 @@ out/
 
 # ─── Electron Build ──────────────────────────────────────────
 dist/
+electron-out/
 # Compiled Electron JS files (source is electron/src/*.ts)
 electron/*.js
 electron/*.js.map

@@ -21,7 +21,7 @@ function createMainWindow(): void {
     backgroundColor: '#0d0d12',
     webPreferences: {
       // ── Security settings ─────────────────────────────────
-      preload: path.join(__dirname, 'preload.js'), // compiled preload
+      preload: path.join(__dirname, 'preload.js'), // sibling in electron-out/electron/src/
       contextIsolation: true,             // renderer cannot access Node APIs
       nodeIntegration: false,             // never allow raw Node in renderer
       sandbox: false,                     // needed for contextBridge
@@ -39,7 +39,7 @@ function createMainWindow(): void {
   } else {
     mainWindow.loadURL(
       url.format({
-        pathname: path.join(__dirname, '../out/index.html'),
+        pathname: path.join(app.getAppPath(), 'out/index.html'),
         protocol: 'file:',
         slashes: true,
       })

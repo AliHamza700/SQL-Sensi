@@ -45,10 +45,15 @@ export function useElectronInfo(): ElectronInfo {
     }
 
     const fetchInfo = async () => {
+      const api = window.electronAPI;
+      if (!api) {
+        setLoading(false);
+        return;
+      }
       try {
         const [v, p] = await Promise.all([
-          window.electronAPI!.getVersion(),
-          window.electronAPI!.getPlatform(),
+          api.getVersion(),
+          api.getPlatform(),
         ]);
         setVersion(v);
         setPlatform(p as string);
@@ -90,11 +95,12 @@ export function useFileDialog(options: UseFileDialogOptions = {}): UseFileDialog
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
   const openDialog = useCallback(async (): Promise<string | null> => {
-    if (!isElectron()) {
+    const api = window.electronAPI;
+    if (!isElectron() || !api) {
       console.warn('[useFileDialog] Not running in Electron — file dialog unavailable');
       return null;
     }
-    const filePath = await window.electronAPI!.openFileDialog(options.filters);
+    const filePath = await api.openFileDialog(options.filters);
     setSelectedPath(filePath);
     return filePath;
   }, [options.filters]);
