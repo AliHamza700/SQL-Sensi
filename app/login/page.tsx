@@ -1,15 +1,24 @@
-import type { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Login — SQL Sensi',
-  description: 'Sign in to SQL Sensi to start analyzing your SQLite databases.',
-};
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/src/components/ui/Button';
+import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 
-/**
- * Login Page — Phase 2 will implement full authentication.
- * This is the UI skeleton for Day 6.
- */
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('analyst@sqlsensi.local');
+  const [password, setPassword] = useState('password123');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 400);
+  };
+
   return (
     <main
       style={{
@@ -17,7 +26,8 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--color-bg-base)',
+        background: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.12) 0%, var(--color-bg-base) 70%)',
+        padding: '1.5rem',
       }}
     >
       <div
@@ -31,91 +41,130 @@ export default function LoginPage() {
           boxShadow: 'var(--shadow-xl)',
         }}
       >
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        {/* Brand header */}
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '56px',
-              height: '56px',
+              width: '54px',
+              height: '54px',
               background: 'var(--color-accent-muted)',
+              border: '1px solid var(--color-accent)',
               borderRadius: 'var(--radius-lg)',
-              marginBottom: '1rem',
+              marginBottom: '0.75rem',
+              fontSize: '1.75rem',
             }}
           >
-            <span style={{ fontSize: '1.75rem' }}>🗄️</span>
+            🗄️
           </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
             SQL Sensi
           </h1>
-          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
-            AI-Powered Database Assistant
+          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem', fontSize: '0.85rem' }}>
+            AI-Powered Natural Language Database Assistant
           </p>
         </div>
 
-        {/* Placeholder notice */}
+        {/* Phase notice */}
         <div
           style={{
-            background: 'var(--color-accent-muted)',
-            border: '1px solid var(--color-accent)',
+            backgroundColor: 'var(--color-bg-elevated)',
+            border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-md)',
-            padding: '1rem',
-            textAlign: 'center',
+            padding: '0.75rem',
+            marginBottom: '1.25rem',
+            fontSize: '0.78rem',
             color: 'var(--color-text-secondary)',
-            fontSize: '0.875rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
           }}
         >
-          <strong style={{ color: 'var(--color-accent)' }}>Phase 1 — UI Skeleton</strong>
-          <br />
-          Authentication form will be implemented in Phase 2.
+          <ShieldCheck size={16} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+          <span>Demo Authentication enabled (Full JWT auth coming in Phase 2).</span>
         </div>
 
-        {/* Skeleton Form */}
-        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Form */}
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label
-              style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}
-            >
-              Email
-            </label>
-            <div
               style={{
-                height: '42px',
-                background: 'var(--color-bg-elevated)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                animation: 'pulse 2s ease infinite',
+                display: 'block',
+                fontSize: '0.825rem',
+                fontWeight: 500,
+                marginBottom: '0.35rem',
+                color: 'var(--color-text-secondary)',
               }}
-            />
+            >
+              Email Address
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem 0.5rem 2.25rem',
+                  backgroundColor: 'var(--color-bg-base)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '0.85rem',
+                }}
+              />
+              <Mail size={14} style={{ position: 'absolute', left: '0.75rem', top: '0.75rem', color: 'var(--color-text-secondary)' }} />
+            </div>
           </div>
+
           <div>
             <label
-              style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}
+              style={{
+                display: 'block',
+                fontSize: '0.825rem',
+                fontWeight: 500,
+                marginBottom: '0.35rem',
+                color: 'var(--color-text-secondary)',
+              }}
             >
               Password
             </label>
-            <div
-              style={{
-                height: '42px',
-                background: 'var(--color-bg-elevated)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                animation: 'pulse 2s ease infinite',
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem 0.5rem 2.25rem',
+                  backgroundColor: 'var(--color-bg-base)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '0.85rem',
+                }}
+              />
+              <Lock size={14} style={{ position: 'absolute', left: '0.75rem', top: '0.75rem', color: 'var(--color-text-secondary)' }} />
+            </div>
           </div>
-          <div
-            style={{
-              height: '42px',
-              background: 'var(--color-accent)',
-              borderRadius: 'var(--radius-md)',
-              opacity: 0.4,
-              marginTop: '0.5rem',
-            }}
-          />
-        </div>
+
+          <div style={{ marginTop: '0.5rem' }}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              isLoading={loading}
+              icon={<ArrowRight size={16} />}
+              style={{ width: '100%' }}
+            >
+              Sign In to SQL Sensi
+            </Button>
+          </div>
+        </form>
       </div>
     </main>
   );
