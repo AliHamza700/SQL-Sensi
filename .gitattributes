@@ -1,0 +1,24 @@
+# SQL Sensi — Git Attributes
+# Enforces consistent line endings across platforms (LF everywhere)
+
+* text=auto eol=lf
+
+# Explicitly text files
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.env*  text eol=lf
+
+# Binary files — never mangle
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.db    binary
+*.node  binary
