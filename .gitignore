@@ -8,7 +8,10 @@ out/
 
 # ─── Electron Build ──────────────────────────────────────────
 dist/
-electron/dist/
+# Compiled Electron JS files (source is electron/src/*.ts)
+electron/*.js
+electron/*.js.map
+electron/*.d.ts
 
 # ─── Environment Variables ────────────────────────────────────
 # NEVER commit actual .env files — only .env.example

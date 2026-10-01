@@ -1,27 +1,54 @@
 /**
- * Electron Preload Script
+ * Electron Preload Script — SQL Sensi
  *
- * This script runs in the renderer process with access to both
- * the renderer and Node.js APIs via contextBridge.
+ * Runs in the renderer process context but has access to Node/Electron APIs.
+ * Uses contextBridge to expose a safe, typed API to the renderer.
  *
- * Security: Only expose explicitly-defined APIs to the renderer.
- * Never expose the entire ipcRenderer — only specific channels.
+ * Security rules:
+ *  - Only expose SPECIFIC methods — never expose ipcRenderer itself
+ *  - Every channel must be in IPC_CHANNELS registry
+ *  - No arbitrary channel invocation from renderer
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
+import { IPC_CHANNELS } from '../../src/config/ipc-channels';
 
-// ─── Type Definitions ─────────────────────────────────────────
-// These mirror what the renderer will see on `window.electronAPI`
+// ─── Renderer-Facing API Type ─────────────────────────────────
+// This type is mirrored in src/types/electron.d.ts for Next.js
 export interface ElectronAPI {
+  // App
   getVersion: () => Promise<string>;
-  getPlatform: () => Promise<string>;
-  // Additional APIs will be added here as features are built:
-  // database: DatabaseAPI
-  // auth: AuthAPI
+  getPlatform: () => Promise<NodeJS.Platform>;
+
+  // Dialog
+  openFileDialog: (filters?: Electron.FileFilter[]) => Promise<string | null>;
+
+  // Phase 2 — Auth
+  // auth: { register, login, logout, validateSession }
+
+  // Phase 3 — Database
+  // database: { open, close, isOpen }
+
+  // Phase 4 — Schema
+  // schema: { extract }
+
+  // Phase 8 — Query
+  // query: { prepare, execute, explain }
+
+  // Phase 12 — Conversation
+  // conversation: { list, get, create, addMessage, delete }
+
+  // Phase 13 — Export
+  // export: { export }
 }
 
-// ─── Expose API to Renderer ───────────────────────────────────
+// ─── Expose to Renderer via contextBridge ────────────────────
 contextBridge.exposeInMainWorld('electronAPI', {
-  getVersion: () => ipcRenderer.invoke('app:get-version'),
-  getPlatform: () => ipcRenderer.invoke('app:get-platform'),
+  // App info
+  getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_VERSION),
+  getPlatform: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_PLATFORM),
+
+  // File dialog
+  openFileDialog: (filters?: Electron.FileFilter[]) =>
+    ipcRenderer.invoke('dialog:open-file', filters),
 } satisfies ElectronAPI);

@@ -7,10 +7,19 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "electron/dist",
-    "rootDir": "electron/src",
-    "resolveJsonModule": true
+    "outDir": "electron",
+    "rootDir": ".",
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "declaration": false
   },
-  "include": ["electron/src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "electron/src/**/*.ts",
+    "src/config/ipc-channels.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "electron/main.js",
+    "electron/preload.js"
+  ]
 }
