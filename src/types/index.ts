@@ -202,11 +202,15 @@ export interface User {
 export interface UserRecord {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
+  password_hash?: string;
   salt: string;
-  createdAt: string;
-  updatedAt: string;
-  lastLoginAt: string | null;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+  lastLoginAt?: string | null;
+  last_login_at?: string | null;
 }
 
 /** Active session entity representing an authenticated client */
@@ -222,12 +226,17 @@ export interface Session {
 /** Internal Session record stored in the authentication SQLite database */
 export interface SessionRecord {
   id: string;
-  userId: string;
+  userId?: string;
+  user_id?: string;
   token: string;
-  expiresAt: string;
-  createdAt: string;
-  isActive: number; // 1 = active, 0 = revoked/expired
-  lastActiveAt: string;
+  expiresAt?: string;
+  expires_at?: string;
+  createdAt?: string;
+  created_at?: string;
+  isActive?: number | boolean;
+  is_active?: number;
+  lastActiveAt?: string;
+  last_active_at?: string;
 }
 
 /** Input DTO for user registration */

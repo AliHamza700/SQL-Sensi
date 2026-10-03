@@ -3,19 +3,52 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/src/components/ui/Button';
-import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { validatePasswordStrength, isValidEmail } from '@/src/services/auth/auth.schema';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('analyst@sqlsensi.local');
-  const [password, setPassword] = useState('password123');
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    // Client-side pre-validations
+    if (!isValidEmail(email)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    if (activeTab === 'register') {
+      const pwdCheck = validatePasswordStrength(password);
+      if (!pwdCheck.valid) {
+        setErrorMsg(pwdCheck.reason || 'Password does not meet strength requirements.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        return;
+      }
+    }
+
     setLoading(true);
+
     setTimeout(() => {
-      router.push('/dashboard');
+      setLoading(false);
+      if (activeTab === 'register') {
+        setSuccessMsg('Account created successfully! Redirecting to dashboard...');
+      }
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 500);
     }, 400);
   };
 
@@ -26,7 +59,7 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.12) 0%, var(--color-bg-base) 70%)',
+        background: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.14) 0%, var(--color-bg-base) 70%)',
         padding: '1.5rem',
       }}
     >
@@ -37,12 +70,12 @@ export default function LoginPage() {
           borderRadius: 'var(--radius-xl)',
           padding: '2.5rem',
           width: '100%',
-          maxWidth: '420px',
+          maxWidth: '440px',
           boxShadow: 'var(--shadow-xl)',
         }}
       >
-        {/* Brand header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+        {/* Brand Header */}
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -67,34 +100,113 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Phase notice */}
+        {/* Tab Toggle (Sign In vs Register) */}
         <div
           style={{
-            backgroundColor: 'var(--color-bg-elevated)',
+            display: 'flex',
+            backgroundColor: 'var(--color-bg-base)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-md)',
-            padding: '0.75rem',
+            padding: '3px',
             marginBottom: '1.25rem',
-            fontSize: '0.78rem',
-            color: 'var(--color-text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
           }}
         >
-          <ShieldCheck size={16} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
-          <span>Demo Authentication enabled (Full JWT auth coming in Phase 2).</span>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('login');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+            style={{
+              flex: 1,
+              padding: '0.45rem',
+              fontSize: '0.825rem',
+              fontWeight: 600,
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              cursor: 'pointer',
+              backgroundColor: activeTab === 'login' ? 'var(--color-bg-elevated)' : 'transparent',
+              color: activeTab === 'login' ? 'var(--color-accent-light)' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('register');
+              setErrorMsg(null);
+              setSuccessMsg(null);
+            }}
+            style={{
+              flex: 1,
+              padding: '0.45rem',
+              fontSize: '0.825rem',
+              fontWeight: 600,
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              cursor: 'pointer',
+              backgroundColor: activeTab === 'register' ? 'var(--color-bg-elevated)' : 'transparent',
+              color: activeTab === 'register' ? 'var(--color-accent-light)' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            Create Account
+          </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Error / Success Feedback Banners */}
+        {errorMsg && (
+          <div
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.65rem 0.75rem',
+              marginBottom: '1rem',
+              fontSize: '0.8rem',
+              color: '#f87171',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div
+            style={{
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              border: '1px solid rgba(34, 197, 94, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.65rem 0.75rem',
+              marginBottom: '1rem',
+              fontSize: '0.8rem',
+              color: '#4ade80',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {/* Auth Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
           <div>
             <label
               style={{
                 display: 'block',
-                fontSize: '0.825rem',
+                fontSize: '0.8rem',
                 fontWeight: 500,
-                marginBottom: '0.35rem',
+                marginBottom: '0.3rem',
                 color: 'var(--color-text-secondary)',
               }}
             >
@@ -104,6 +216,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 required
+                placeholder="analyst@sqlsensi.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{
@@ -124,9 +237,9 @@ export default function LoginPage() {
             <label
               style={{
                 display: 'block',
-                fontSize: '0.825rem',
+                fontSize: '0.8rem',
                 fontWeight: 500,
-                marginBottom: '0.35rem',
+                marginBottom: '0.3rem',
                 color: 'var(--color-text-secondary)',
               }}
             >
@@ -136,6 +249,7 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{
@@ -150,7 +264,47 @@ export default function LoginPage() {
               />
               <Lock size={14} style={{ position: 'absolute', left: '0.75rem', top: '0.75rem', color: 'var(--color-text-secondary)' }} />
             </div>
+            {activeTab === 'register' && (
+              <p style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)', marginTop: '0.3rem' }}>
+                Must be at least 8 characters with uppercase, lowercase, and numbers.
+              </p>
+            )}
           </div>
+
+          {activeTab === 'register' && (
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  marginBottom: '0.3rem',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                Confirm Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem 0.5rem 2.25rem',
+                    backgroundColor: 'var(--color-bg-base)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: '0.85rem',
+                  }}
+                />
+                <Lock size={14} style={{ position: 'absolute', left: '0.75rem', top: '0.75rem', color: 'var(--color-text-secondary)' }} />
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: '0.5rem' }}>
             <Button
@@ -158,10 +312,10 @@ export default function LoginPage() {
               variant="primary"
               size="lg"
               isLoading={loading}
-              icon={<ArrowRight size={16} />}
+              icon={activeTab === 'login' ? <ArrowRight size={16} /> : <UserPlus size={16} />}
               style={{ width: '100%' }}
             >
-              Sign In to SQL Sensi
+              {activeTab === 'login' ? 'Sign In to SQL Sensi' : 'Create Account'}
             </Button>
           </div>
         </form>
