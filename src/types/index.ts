@@ -189,16 +189,72 @@ export interface ConversationMessage {
 
 // ─── Auth Types ───────────────────────────────────────────────
 
+/** Safe User representation exposed to UI and external layers (never contains password/hash) */
 export interface User {
   id: string;
   email: string;
   createdAt: string;
+  updatedAt?: string;
+  lastLoginAt?: string | null;
 }
 
+/** Internal User record stored in the authentication SQLite database */
+export interface UserRecord {
+  id: string;
+  email: string;
+  passwordHash: string;
+  salt: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt: string | null;
+}
+
+/** Active session entity representing an authenticated client */
 export interface Session {
+  id: string;
   userId: string;
   token: string;
   expiresAt: string;
+  createdAt: string;
+  isActive: boolean;
+}
+
+/** Internal Session record stored in the authentication SQLite database */
+export interface SessionRecord {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: string;
+  createdAt: string;
+  isActive: number; // 1 = active, 0 = revoked/expired
+  lastActiveAt: string;
+}
+
+/** Input DTO for user registration */
+export interface RegisterInput {
+  email: string;
+  password: string;
+}
+
+/** Input DTO for user authentication */
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+/** Composite result returned upon successful registration or login */
+export interface AuthResult {
+  user: User;
+  session: Session;
+}
+
+/** Client-side state managed by Auth context or hook */
+export interface AuthState {
+  user: User | null;
+  session: Session | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
 }
 
 // ─── Error Types ──────────────────────────────────────────────

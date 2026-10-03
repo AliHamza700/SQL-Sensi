@@ -18,16 +18,20 @@ import type {
   Conversation,
   ConversationMessage,
   User,
-  Session,
+  AuthResult,
   ServiceResult,
 } from '@/src/types';
 
 // ─── Auth Service Interface ───────────────────────────────────
 
 export interface IAuthService {
-  register(email: string, password: string): Promise<ServiceResult<User>>;
-  login(email: string, password: string): Promise<ServiceResult<Session>>;
+  /** Register a new user account with email and password */
+  register(email: string, password: string): Promise<ServiceResult<AuthResult>>;
+  /** Authenticate user and issue an active session token */
+  login(email: string, password: string): Promise<ServiceResult<AuthResult>>;
+  /** Revoke an active session token */
   logout(token: string): Promise<ServiceResult<void>>;
+  /** Verify session token validity and return current user */
   validateSession(token: string): Promise<ServiceResult<User>>;
 }
 
