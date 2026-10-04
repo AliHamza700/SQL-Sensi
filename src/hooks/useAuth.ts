@@ -2,15 +2,16 @@
  * useAuth — React Hook for Authentication State (SQL Sensi)
  *
  * Provides authentication state management for the renderer process.
- * Persists the session token in localStorage so it survives page reloads.
- * Validates the stored token against the main process on mount.
  *
- * Usage:
- *   const { user, isAuthenticated, isLoading, login, register, logout } = useAuth();
+ * Day 12 upgrades over Day 10 implementation:
+ * - Uses session-storage util (token + expiresAt stored together)
+ * - Client-side expiry pre-check on restore (skips IPC if already expired)
+ * - Plugs in useSessionExpiry to auto-logout when the session timer fires
+ * - Exposes sessionExpiresAt on the return value for UI countdown display
  *
  * Key types (from src/types/index.ts):
- *   AuthResult   = { user: User; session: Session }
- *   Session      = { id, userId, token, expiresAt, createdAt, isActive }
+ *   AuthResult      = { user: User; session: Session }
+ *   Session         = { id, userId, token, expiresAt, createdAt, isActive }
  *   ServiceResult<T> = { success: true; data: T } | { success: false; error: AppError }
  *
  * All auth calls go:
@@ -22,9 +23,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { User, ServiceResult, AuthResult, AppError } from '@/src/types';
-
-// ─── Storage key ─────────────────────────────────────────────
-const SESSION_TOKEN_KEY = 'sql_sensi_session_token';
+import {
+  saveSession,
+  readSession,
+  clearSession,
+  isSessionExpired,
+} from '@/src/utils/session-storage';
+import { useSessionExpiry } from './useSessionExpiry';
 
 // ─── Hook Return Type ─────────────────────────────────────────
 export interface UseAuthReturn {
@@ -36,6 +41,8 @@ export interface UseAuthReturn {
   isLoading: boolean;
   /** Last auth error, cleared on next successful action */
   error: AppError | null;
+  /** ISO-8601 expiry time of the current session, or null */
+  sessionExpiresAt: string | null;
 
   login: (email: string, password: string) => Promise<ServiceResult<AuthResult>>;
   register: (email: string, password: string) => Promise<ServiceResult<AuthResult>>;
@@ -54,32 +61,58 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<AppError | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<string | null>(null);
+
+  // ── Auto-logout when session timer fires ─────────────────────
+  // useSessionExpiry schedules a single setTimeout that fires at expiresAt.
+  // On expiry, we call logout() to clear local state + revoke server-side.
+  const handleExpiry = useCallback(() => {
+    clearSession();
+    setUser(null);
+    setSessionExpiresAt(null);
+    // Intentionally NOT calling auth bridge logout here — the session is
+    // already expired server-side; the IPC call would just be noise.
+  }, []);
+
+  useSessionExpiry(sessionExpiresAt, handleExpiry);
 
   // ── On mount: restore session from localStorage ─────────────
   useEffect(() => {
     const restore = async () => {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!token) {
+      const stored = readSession();
+
+      // No stored token at all
+      if (!stored) {
         setIsLoading(false);
         return;
       }
+
+      // Client-side expiry pre-check — avoids wasting an IPC round-trip
+      if (isSessionExpired(stored)) {
+        clearSession();
+        setIsLoading(false);
+        return;
+      }
+
       const auth = getAuthBridge();
       if (!auth) {
-        // Running in a plain browser — skip validation
+        // Running in a plain browser (dev preview) — skip IPC validation
         setIsLoading(false);
         return;
       }
+
       try {
-        // validateSession returns ServiceResult<User>
-        const result = await auth.validateSession(token);
+        // Server-side validation (defence in depth: server is the source of truth)
+        const result = await auth.validateSession(stored.token);
         if (result.success) {
           setUser(result.data);
+          setSessionExpiresAt(stored.expiresAt);
         } else {
-          // Token expired or invalid — clear it
-          localStorage.removeItem(SESSION_TOKEN_KEY);
+          // Token rejected by server — clear it
+          clearSession();
         }
       } catch {
-        localStorage.removeItem(SESSION_TOKEN_KEY);
+        clearSession();
       } finally {
         setIsLoading(false);
       }
@@ -104,8 +137,9 @@ export function useAuth(): UseAuthReturn {
       const result = await auth.login(email, password);
       if (result.success) {
         const { user: loggedInUser, session } = result.data;
-        localStorage.setItem(SESSION_TOKEN_KEY, session.token);
+        saveSession(session.token, session.expiresAt);
         setUser(loggedInUser);
+        setSessionExpiresAt(session.expiresAt);
       } else {
         setError(result.error);
       }
@@ -131,8 +165,9 @@ export function useAuth(): UseAuthReturn {
       const result = await auth.register(email, password);
       if (result.success) {
         const { user: newUser, session } = result.data;
-        localStorage.setItem(SESSION_TOKEN_KEY, session.token);
+        saveSession(session.token, session.expiresAt);
         setUser(newUser);
+        setSessionExpiresAt(session.expiresAt);
       } else {
         setError(result.error);
       }
@@ -143,14 +178,15 @@ export function useAuth(): UseAuthReturn {
 
   // ── logout ───────────────────────────────────────────────────
   const logout = useCallback(async (): Promise<void> => {
-    const token = localStorage.getItem(SESSION_TOKEN_KEY);
-    localStorage.removeItem(SESSION_TOKEN_KEY);
+    const stored = readSession();
+    clearSession();
     setUser(null);
+    setSessionExpiresAt(null);
     setError(null);
 
-    if (token) {
+    if (stored?.token) {
       const auth = getAuthBridge();
-      await auth?.logout(token).catch(() => {
+      await auth?.logout(stored.token).catch(() => {
         // Swallow — local state is already cleared regardless of server result
       });
     }
@@ -163,6 +199,7 @@ export function useAuth(): UseAuthReturn {
     isAuthenticated: user !== null,
     isLoading,
     error,
+    sessionExpiresAt,
     login,
     register,
     logout,

@@ -23,12 +23,19 @@ import {
 export default function DashboardPage() {
   const router = useRouter();
   const { isElectron, version, platform, loading, error } = useElectronInfo();
-  const { user, logout } = useAuthContext();
+  const { user, logout, sessionExpiresAt } = useAuthContext();
 
   const handleLogout = async () => {
     await logout();
     router.push('/login');
   };
+
+  // Format session expiry for display
+  const sessionExpiryDisplay = sessionExpiresAt
+    ? new Date(sessionExpiresAt).toLocaleDateString(undefined, {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : null;
 
   return (
     <AppLayout title="Dashboard" databaseName="chinook.db (demo)">
@@ -46,9 +53,12 @@ export default function DashboardPage() {
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               <Badge variant="accent">SQL-Sensi v0.1.0</Badge>
               <Badge variant="success">Read-Only Safety Active</Badge>
+              {sessionExpiryDisplay && (
+                <Badge variant="warning">Session expires {sessionExpiryDisplay}</Badge>
+              )}
             </div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0.25rem 0' }}>
               {user?.email ? `Welcome, ${user.email}` : 'Welcome to SQL Sensi'}

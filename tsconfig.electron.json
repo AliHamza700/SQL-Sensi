@@ -26,6 +26,7 @@
   ],
   "exclude": [
     "node_modules",
-    "electron-out"
+    "electron-out",
+    "src/utils/session-storage.ts"
   ]
 }
