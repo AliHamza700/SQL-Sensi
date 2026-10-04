@@ -5,11 +5,11 @@ import { AppLayout } from '@/src/components/layout/AppLayout';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
+import { useDatabaseContext } from '@/src/contexts';
 import { useFileDialog } from '@/src/hooks/useElectron';
 import {
   UploadCloud,
   FileCheck,
-  CheckCircle2,
   FolderOpen,
 } from 'lucide-react';
 
@@ -18,10 +18,22 @@ export default function DatabasePage() {
     filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
   });
 
-  const activeDb = 'chinook.db';
+  const { activeDatabasePath, setActiveDatabasePath } = useDatabaseContext();
+
+  const handleOpenDialog = async () => {
+    const path = await openDialog();
+    if (path) {
+      setActiveDatabasePath(path);
+    }
+  };
+
+  // For display purposes, extract the filename from the absolute path
+  const activeDbFilename = activeDatabasePath 
+    ? activeDatabasePath.split(/[/\\]/).pop() 
+    : 'No database selected';
 
   return (
-    <AppLayout title="Database Manager" databaseName={activeDb}>
+    <AppLayout title="Database Manager" databaseName={activeDbFilename}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1000px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Database Connection & Manager</h1>
@@ -72,7 +84,7 @@ export default function DatabasePage() {
               <Button
                 variant="primary"
                 icon={<FolderOpen size={16} />}
-                onClick={() => openDialog()}
+                onClick={handleOpenDialog}
               >
                 Browse Files {available ? '(Native Dialog)' : ''}
               </Button>
@@ -106,20 +118,30 @@ export default function DatabasePage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>File Name</span>
-              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDb}</span>
+              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDbFilename}</span>
+            </div>
+            <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>Full Path</span>
+              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                {activeDatabasePath || 'None'}
+              </span>
             </div>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>File Size</span>
-              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>864 KB</span>
+              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDatabasePath ? 'Checking...' : '-'}</span>
             </div>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>Tables Detected</span>
-              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>11 Tables</span>
+              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDatabasePath ? 'Pending scan' : '-'}</span>
             </div>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>Header Check</span>
-              <span style={{ color: 'var(--color-success)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <CheckCircle2 size={14} /> SQLite 3.x Valid
+              <span style={{ color: activeDatabasePath ? 'var(--color-warning)' : 'var(--color-text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                {activeDatabasePath ? (
+                  <>Pending validation...</>
+                ) : (
+                  <>Waiting for file</>
+                )}
               </span>
             </div>
           </div>

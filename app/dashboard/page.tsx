@@ -8,7 +8,7 @@ import { Card } from '@/src/components/ui/Card';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { useElectronInfo } from '@/src/hooks/useElectron';
-import { useAuthContext } from '@/src/contexts';
+import { useAuthContext, useDatabaseContext } from '@/src/contexts';
 import {
   Database,
   Table,
@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isElectron, version, platform, loading, error } = useElectronInfo();
   const { user, logout, sessionExpiresAt } = useAuthContext();
+  const { activeDatabasePath } = useDatabaseContext();
 
   const handleLogout = async () => {
     await logout();
@@ -37,8 +38,12 @@ export default function DashboardPage() {
       })
     : null;
 
+  const activeDbFilename = activeDatabasePath 
+    ? activeDatabasePath.split(/[/\\]/).pop() 
+    : 'No database selected';
+
   return (
-    <AppLayout title="Dashboard" databaseName="chinook.db (demo)">
+    <AppLayout title="Dashboard" databaseName={activeDbFilename}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1200px' }}>
         {/* Welcome Banner */}
         <div

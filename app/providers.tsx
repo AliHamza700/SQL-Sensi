@@ -10,8 +10,14 @@
 
 'use client';
 
-import { AuthProvider } from '@/src/contexts';
+import { AuthProvider, DatabaseProvider } from '@/src/contexts';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <DatabaseProvider>
+        {children}
+      </DatabaseProvider>
+    </AuthProvider>
+  );
 }

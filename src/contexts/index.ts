@@ -7,3 +7,6 @@
 
 export { AuthProvider, useAuthContext } from './AuthContext';
 export type { AuthContextValue } from './AuthContext';
+
+export { DatabaseProvider, useDatabaseContext } from './DatabaseContext';
+export type { DatabaseContextValue } from './DatabaseContext';
