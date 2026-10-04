@@ -18,6 +18,13 @@ export interface DatabaseSchema {
   views: ViewSchema[];
 }
 
+export interface DatabaseValidationResult {
+  valid: boolean;
+  fileSizeInBytes?: number;
+  error?: string;
+}
+
+
 export interface TableSchema {
   name: string;
   columns: ColumnSchema[];

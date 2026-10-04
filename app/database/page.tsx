@@ -6,10 +6,12 @@ import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { useDatabaseContext } from '@/src/contexts';
-import { useFileDialog } from '@/src/hooks/useElectron';
+import { useFileDialog, isElectron } from '@/src/hooks/useElectron';
+import { DatabaseValidationResult } from '@/src/types';
 import {
   UploadCloud,
   FileCheck,
+  CheckCircle2,
   FolderOpen,
 } from 'lucide-react';
 
@@ -19,6 +21,31 @@ export default function DatabasePage() {
   });
 
   const { activeDatabasePath, setActiveDatabasePath } = useDatabaseContext();
+  const [validationResult, setValidationResult] = React.useState<DatabaseValidationResult | null>(null);
+  const [isValidating, setIsValidating] = React.useState(false);
+
+  React.useEffect(() => {
+    async function validate() {
+      if (!activeDatabasePath || !isElectron() || !window.electronAPI) {
+        setValidationResult(null);
+        return;
+      }
+      setIsValidating(true);
+      try {
+        const res = await window.electronAPI.database.validateFile(activeDatabasePath);
+        if (res.success) {
+          setValidationResult(res.data);
+        } else {
+          setValidationResult({ valid: false, error: res.error.message });
+        }
+      } catch (err: unknown) {
+        setValidationResult({ valid: false, error: err instanceof Error ? err.message : 'Unknown error' });
+      } finally {
+        setIsValidating(false);
+      }
+    }
+    validate();
+  }, [activeDatabasePath]);
 
   const handleOpenDialog = async () => {
     const path = await openDialog();
@@ -128,17 +155,29 @@ export default function DatabasePage() {
             </div>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>File Size</span>
-              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDatabasePath ? 'Checking...' : '-'}</span>
+              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                {isValidating ? 'Checking...' : validationResult?.fileSizeInBytes ? `${(validationResult.fileSizeInBytes / 1024).toFixed(2)} KB` : '-'}
+              </span>
             </div>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>Tables Detected</span>
-              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDatabasePath ? 'Pending scan' : '-'}</span>
+              <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{activeDatabasePath ? (validationResult?.valid ? 'Pending scan' : '-') : '-'}</span>
             </div>
             <div style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-md)' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'block' }}>Header Check</span>
-              <span style={{ color: activeDatabasePath ? 'var(--color-warning)' : 'var(--color-text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <span style={{ 
+                color: activeDatabasePath 
+                  ? (isValidating ? 'var(--color-warning)' : (validationResult?.valid ? 'var(--color-success)' : 'var(--color-danger)')) 
+                  : 'var(--color-text-secondary)', 
+                fontWeight: 600, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.25rem' 
+              }}>
                 {activeDatabasePath ? (
-                  <>Pending validation...</>
+                  isValidating ? <>Checking...</> : 
+                  validationResult?.valid ? <><CheckCircle2 size={14} /> SQLite 3.x Valid</> : 
+                  <span title={validationResult?.error}>Invalid Format</span>
                 ) : (
                   <>Waiting for file</>
                 )}
