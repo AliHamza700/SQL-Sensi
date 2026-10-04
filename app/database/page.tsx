@@ -32,7 +32,7 @@ export default function DatabasePage() {
       }
       setIsValidating(true);
       try {
-        const res = await window.electronAPI.database.validateFile(activeDatabasePath);
+        const res = await window.electronAPI.database.connect(activeDatabasePath);
         if (res.success) {
           setValidationResult(res.data);
         } else {

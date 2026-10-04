@@ -35,6 +35,7 @@ export interface ElectronAPI {
   // Phase 3 — Database
   database: { 
     validateFile: (filePath: string) => Promise<ServiceResult<DatabaseValidationResult>>;
+    connect: (filePath: string) => Promise<ServiceResult<DatabaseValidationResult>>;
   };
 
   // Phase 4 — Schema
@@ -76,5 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   database: {
     validateFile: (filePath: string) =>
       ipcRenderer.invoke('database:validate', filePath),
+    connect: (filePath: string) =>
+      ipcRenderer.invoke('database:connect', filePath),
   },
 } satisfies ElectronAPI);
