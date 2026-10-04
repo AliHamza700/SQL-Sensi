@@ -2,11 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/src/components/layout/AppLayout';
 import { Card } from '@/src/components/ui/Card';
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { useElectronInfo } from '@/src/hooks/useElectron';
+import { useAuthContext } from '@/src/contexts';
 import {
   Database,
   Table,
@@ -15,10 +17,18 @@ import {
   ShieldCheck,
   Cpu,
   ArrowRight,
+  LogOut,
 } from 'lucide-react';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { isElectron, version, platform, loading, error } = useElectronInfo();
+  const { user, logout } = useAuthContext();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+  };
 
   return (
     <AppLayout title="Dashboard" databaseName="chinook.db (demo)">
@@ -41,13 +51,13 @@ export default function DashboardPage() {
               <Badge variant="success">Read-Only Safety Active</Badge>
             </div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0.25rem 0' }}>
-              Welcome to SQL Sensi
+              {user?.email ? `Welcome, ${user.email}` : 'Welcome to SQL Sensi'}
             </h1>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', maxWidth: '600px' }}>
               Upload any SQLite database file to inspect schemas, ask natural language questions, generate safe SQL queries, and visualize results instantly.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <Link href="/database">
               <Button variant="secondary" icon={<Database size={16} />}>
                 Upload Database
@@ -58,6 +68,13 @@ export default function DashboardPage() {
                 Start Query Chat
               </Button>
             </Link>
+            <Button
+              variant="outline"
+              icon={<LogOut size={16} />}
+              onClick={handleLogout}
+            >
+              Sign Out
+            </Button>
           </div>
         </div>
 

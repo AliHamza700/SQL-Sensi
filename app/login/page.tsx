@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/src/components/ui/Button';
 import { Lock, Mail, ArrowRight, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validatePasswordStrength, isValidEmail } from '@/src/services/auth/auth.schema';
-import { useAuth } from '@/src/hooks/useAuth';
+import { useAuthContext } from '@/src/contexts';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register } = useAuth();
+  const { login, register } = useAuthContext();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
