@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import { IPC_CHANNELS } from '../../src/config/ipc-channels';
+import { registerAuthHandlers } from './ipc/auth.ipc';
 
 // ─── Constants ───────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
@@ -115,3 +116,7 @@ ipcMain.handle('dialog:open-file', async (_, filters: Electron.FileFilter[]) => 
 // Future: import and register feature IPC modules here
 // import { registerDatabaseHandlers } from './ipc/database';
 // registerDatabaseHandlers(ipcMain);
+
+// ─── Feature IPC Registrations ────────────────────────────────
+registerAuthHandlers();
+

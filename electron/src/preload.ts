@@ -12,6 +12,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../src/config/ipc-channels';
+import type { ServiceResult, AuthResult, User } from '../../src/types/index';
 
 // ─── Renderer-Facing API Type ─────────────────────────────────
 // This type is mirrored in src/types/electron.d.ts for Next.js
@@ -24,7 +25,12 @@ export interface ElectronAPI {
   openFileDialog: (filters?: Electron.FileFilter[]) => Promise<string | null>;
 
   // Phase 2 — Auth
-  // auth: { register, login, logout, validateSession }
+  auth: {
+    register: (email: string, password: string) => Promise<ServiceResult<AuthResult>>;
+    login: (email: string, password: string) => Promise<ServiceResult<AuthResult>>;
+    logout: (token: string) => Promise<ServiceResult<void>>;
+    validateSession: (token: string) => Promise<ServiceResult<User>>;
+  };
 
   // Phase 3 — Database
   // database: { open, close, isOpen }
@@ -51,4 +57,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File dialog
   openFileDialog: (filters?: Electron.FileFilter[]) =>
     ipcRenderer.invoke('dialog:open-file', filters),
+
+  // Auth
+  auth: {
+    register: (email: string, password: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_REGISTER, email, password),
+    login: (email: string, password: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGIN, email, password),
+    logout: (token: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT, token),
+    validateSession: (token: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_VALIDATE, token),
+  },
 } satisfies ElectronAPI);

@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/src/components/ui/Button';
 import { Lock, Mail, ArrowRight, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validatePasswordStrength, isValidEmail } from '@/src/services/auth/auth.schema';
+import { useAuth } from '@/src/hooks/useAuth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, register } = useAuth();
+
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,12 +19,12 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    // Client-side pre-validations
+    // ── Client-side pre-validation ─────────────────────────────
     if (!isValidEmail(email)) {
       setErrorMsg('Please enter a valid email address.');
       return;
@@ -41,15 +44,28 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
-      if (activeTab === 'register') {
-        setSuccessMsg('Account created successfully! Redirecting to dashboard...');
+    try {
+      // ── IPC call to Electron main process via auth bridge ──────
+      const result = activeTab === 'login'
+        ? await login(email, password)
+        : await register(email, password);
+
+      if (result.success) {
+        if (activeTab === 'register') {
+          setSuccessMsg('Account created! Redirecting to dashboard…');
+        }
+        // Brief pause so user sees success state before navigation
+        setTimeout(() => router.push('/dashboard'), 400);
+      } else {
+        // result.error is AppError { code, message, details }
+        setErrorMsg(result.error.details ?? result.error.message);
       }
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 500);
-    }, 400);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unexpected error — please try again.';
+      setErrorMsg(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

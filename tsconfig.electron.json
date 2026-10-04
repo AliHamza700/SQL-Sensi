@@ -11,11 +11,18 @@
     "rootDir": ".",
     "resolveJsonModule": true,
     "sourceMap": true,
-    "declaration": false
+    "declaration": false,
+    "paths": {
+      "@/*": ["./*"],
+      "@/src/*": ["./src/*"]
+    }
   },
   "include": [
     "electron/src/**/*.ts",
-    "src/config/ipc-channels.ts"
+    "src/config/**/*.ts",
+    "src/services/**/*.ts",
+    "src/types/**/*.ts",
+    "src/utils/**/*.ts"
   ],
   "exclude": [
     "node_modules",
