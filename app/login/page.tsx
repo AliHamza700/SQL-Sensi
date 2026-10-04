@@ -6,6 +6,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Lock, Mail, ArrowRight, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validatePasswordStrength, isValidEmail } from '@/src/services/auth/auth.schema';
 import { useAuthContext } from '@/src/contexts';
+import { GuestGuard } from '@/src/components/security/GuestGuard';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,9 +70,10 @@ export default function LoginPage() {
   };
 
   return (
-    <main
-      style={{
-        minHeight: '100vh',
+    <GuestGuard>
+      <main
+        style={{
+          minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -337,5 +339,6 @@ export default function LoginPage() {
         </form>
       </div>
     </main>
+    </GuestGuard>
   );
 }

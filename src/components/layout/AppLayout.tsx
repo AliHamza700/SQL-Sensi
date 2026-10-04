@@ -3,6 +3,7 @@
 import React from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { AuthGuard } from '@/src/components/security/AuthGuard';
 
 export interface AppLayoutProps {
   children: React.ReactNode;
@@ -16,8 +17,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   databaseName,
 }) => {
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)' }}>
-      {/* Fixed Sidebar */}
+    <AuthGuard>
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)' }}>
+        {/* Fixed Sidebar */}
       <Sidebar />
 
       {/* Main Content Area */}
@@ -35,6 +37,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           {children}
         </main>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 };
