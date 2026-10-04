@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { DatabaseValidationResult, ServiceResult } from '@/src/types';
+import { DatabaseValidationResult, ServiceResult, QueryResult } from '@/src/types';
 import { createError } from '@/src/utils/errors';
 import { validateDatabaseFile } from './database.validator';
 
@@ -91,6 +91,54 @@ export class DatabaseService {
    */
   public getActivePath(): string | null {
     return this.currentPath;
+  }
+
+  /**
+   * Safely executes a read-only query on the active database.
+   * Tracks execution time and handles SQLite errors securely.
+   */
+  public executeQuery(sql: string, params: unknown[] = []): ServiceResult<QueryResult> {
+    try {
+      const db = this.getConnection(); // Throws if disconnected
+      
+      // Basic text-based safety check (AST parsing comes in Phase 6)
+      const upperSql = sql.trim().toUpperCase();
+      const forbidden = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'REPLACE', 'TRUNCATE'];
+      if (forbidden.some(word => upperSql.startsWith(word))) {
+        return {
+          success: false,
+          error: createError('SQL_VALIDATION_ERROR', 'Only read-only queries are allowed.'),
+        };
+      }
+
+      const startTime = performance.now();
+      const stmt = db.prepare(sql);
+      
+      // Extract column metadata
+      const columnsMetadata = stmt.columns();
+      const columns = columnsMetadata.map((c: any) => c.name);
+
+      // Execute query
+      const rows = stmt.all(...params) as Record<string, unknown>[];
+      const executionTimeMs = performance.now() - startTime;
+
+      return {
+        success: true,
+        data: {
+          columns,
+          rows,
+          rowCount: rows.length,
+          executionTimeMs,
+        },
+      };
+
+    } catch (error: any) {
+      const msg = error?.message || 'Unknown query execution error';
+      return {
+        success: false,
+        error: createError('SQL_EXECUTION_ERROR', `Query failed: ${msg}`),
+      };
+    }
   }
 }
 

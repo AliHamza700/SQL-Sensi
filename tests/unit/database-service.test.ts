@@ -32,10 +32,12 @@ describe('DatabaseService (Phase 3)', () => {
   afterAll(() => {
     // Cleanup
     dbService?.disconnect();
-    if (fs.existsSync(validDbPath)) fs.unlinkSync(validDbPath);
-    if (fs.existsSync(invalidPath)) fs.unlinkSync(invalidPath);
-    if (fs.existsSync(smallFilePath)) fs.unlinkSync(smallFilePath);
-    try { fs.rmdirSync(tempDir); } catch {}
+    setTimeout(() => {
+      try { if (fs.existsSync(validDbPath)) fs.unlinkSync(validDbPath); } catch {}
+      try { if (fs.existsSync(invalidPath)) fs.unlinkSync(invalidPath); } catch {}
+      try { if (fs.existsSync(smallFilePath)) fs.unlinkSync(smallFilePath); } catch {}
+      try { fs.rmdirSync(tempDir); } catch {}
+    }, 100);
   });
 
   beforeEach(() => {
@@ -108,5 +110,49 @@ describe('DatabaseService (Phase 3)', () => {
     const result = await dbService.connect(validDbPath);
     expect(result.success).toBe(true);
     expect(dbService.isConnected()).toBe(true);
+  });
+
+  describe('executeQuery', () => {
+    beforeEach(async () => {
+      await dbService.connect(validDbPath);
+    });
+
+    it('should successfully execute a valid SELECT query', () => {
+      const result = dbService.executeQuery('SELECT * FROM test');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.columns).toEqual(['id']);
+        expect(result.data.rows).toEqual([]);
+        expect(result.data.rowCount).toBe(0);
+        expect(typeof result.data.executionTimeMs).toBe('number');
+      }
+    });
+
+    it('should block basic mutating queries', () => {
+      const result = dbService.executeQuery('INSERT INTO test (id) VALUES (1)');
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
+      }
+    });
+
+    it('should handle syntax errors gracefully', () => {
+      const result = dbService.executeQuery('SELECT * FRO test'); // syntax error
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('SQL_EXECUTION_ERROR');
+        expect(result.error.message).toMatch(/syntax error/i);
+      }
+    });
+
+    it('should throw an error if no database is connected', () => {
+      dbService.disconnect();
+      const result = dbService.executeQuery('SELECT * FROM test');
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('SQL_EXECUTION_ERROR');
+        expect(result.error.message).toMatch(/No database connected/i);
+      }
+    });
   });
 });
