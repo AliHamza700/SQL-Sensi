@@ -12,7 +12,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../src/config/ipc-channels';
-import type { ServiceResult, AuthResult, User, DatabaseValidationResult } from '../../src/types/index';
+import type { ServiceResult, AuthResult, User, DatabaseValidationResult, DatabaseSchema } from '../../src/types/index';
 
 // ─── Renderer-Facing API Type ─────────────────────────────────
 // This type is mirrored in src/types/electron.d.ts for Next.js
@@ -39,7 +39,9 @@ export interface ElectronAPI {
   };
 
   // Phase 4 — Schema
-  // schema: { extract }
+  schema: { 
+    extract: () => Promise<ServiceResult<DatabaseSchema>>;
+  };
 
   // Phase 8 — Query
   // query: { prepare, execute, explain }
@@ -79,5 +81,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('database:validate', filePath),
     connect: (filePath: string) =>
       ipcRenderer.invoke('database:connect', filePath),
+  },
+
+  // Schema
+  schema: {
+    extract: () => ipcRenderer.invoke('schema:extract'),
   },
 } satisfies ElectronAPI);

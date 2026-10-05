@@ -38,6 +38,7 @@ export class DatabaseService {
       this.disconnect();
 
       // 3. Open connection in read-only mode
+      // @ts-expect-error - readOnly is supported in Node 24 but missing in current @types/node
       this.db = new DatabaseSync(filePath, { readOnly: true });
       this.currentPath = filePath;
 
@@ -115,7 +116,9 @@ export class DatabaseService {
       const stmt = db.prepare(sql);
       
       // Extract column metadata
-      const columnsMetadata = stmt.columns();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const columnsMetadata = (stmt as any).columns();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const columns = columnsMetadata.map((c: any) => c.name);
 
       // Execute query
@@ -132,6 +135,7 @@ export class DatabaseService {
         },
       };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const msg = error?.message || 'Unknown query execution error';
       return {

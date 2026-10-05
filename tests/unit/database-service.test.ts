@@ -44,6 +44,7 @@ describe('DatabaseService (Phase 3)', () => {
     // We can't easily reset a singleton between tests if it's exported as a const,
     // but we can use the class directly to spawn a clean instance.
     // However, since it has a private constructor, we'll cast any to hack reset it for testing.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (DatabaseService as any).instance = undefined;
     dbService = DatabaseService.getInstance();
   });
