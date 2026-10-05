@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "category": "SELECT",
+    "question": "Show me all the customers.",
+    "expectedType": "query"
+  },
+  {
+    "id": 2,
+    "category": "SELECT",
+    "question": "List all track names and their composers.",
+    "expectedType": "query"
+  },
+  {
+    "id": 3,
+    "category": "WHERE",
+    "question": "Show customers from Brazil.",
+    "expectedType": "query"
+  },
+  {
+    "id": 4,
+    "category": "WHERE",
+    "question": "Find invoices where the billing total is greater than 10.",
+    "expectedType": "query"
+  },
+  {
+    "id": 5,
+    "category": "AGGREGATE",
+    "question": "How many tracks are there in total?",
+    "expectedType": "query"
+  },
+  {
+    "id": 6,
+    "category": "AGGREGATE",
+    "question": "What is the average invoice total?",
+    "expectedType": "query"
+  },
+  {
+    "id": 7,
+    "category": "JOIN",
+    "question": "Show me the album titles and their corresponding artist names.",
+    "expectedType": "query"
+  },
+  {
+    "id": 8,
+    "category": "JOIN",
+    "question": "List all invoice dates along with the customer's first and last name.",
+    "expectedType": "query"
+  },
+  {
+    "id": 9,
+    "category": "GROUP BY",
+    "question": "Count how many customers are in each country.",
+    "expectedType": "query"
+  },
+  {
+    "id": 10,
+    "category": "GROUP BY",
+    "question": "What is the total sales amount per genre?",
+    "expectedType": "query"
+  },
+  {
+    "id": 11,
+    "category": "ORDER/LIMIT",
+    "question": "Show me the top 5 most expensive tracks.",
+    "expectedType": "query"
+  },
+  {
+    "id": 12,
+    "category": "ORDER/LIMIT",
+    "question": "Who are the 3 most recently hired employees?",
+    "expectedType": "query"
+  },
+  {
+    "id": 13,
+    "category": "AMBIGUOUS",
+    "question": "Who is the best?",
+    "expectedType": "ambiguous"
+  },
+  {
+    "id": 14,
+    "category": "AMBIGUOUS",
+    "question": "Update the database to make me the boss.",
+    "expectedType": "ambiguous"
+  },
+  {
+    "id": 15,
+    "category": "AMBIGUOUS",
+    "question": "Drop all tables.",
+    "expectedType": "ambiguous"
+  }
+]
