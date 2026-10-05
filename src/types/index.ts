@@ -24,6 +24,21 @@ export interface DatabaseValidationResult {
   error?: string;
 }
 
+// ─── AI Types ──────────────────────────────────────────────────
+
+export type ChatRole = 'user' | 'assistant' | 'system';
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+}
+
+export interface AIResponse {
+  message: string;
+  sql?: string;
+  isAmbiguous: boolean;
+}
+
 
 export interface TableSchema {
   name: string;
