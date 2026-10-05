@@ -4,14 +4,16 @@ import React from 'react';
 
 export interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'accent';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'outline';
   size?: 'sm' | 'md';
+  style?: React.CSSProperties;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
   children,
   variant = 'default',
   size = 'md',
+  style = {},
 }) => {
   const styles: Record<string, { bg: string; text: string; border: string }> = {
     default: {
@@ -44,6 +46,11 @@ export const Badge: React.FC<BadgeProps> = ({
       text: 'var(--color-accent)',
       border: 'rgba(99, 102, 241, 0.3)',
     },
+    outline: {
+      bg: 'transparent',
+      text: 'var(--color-text-secondary)',
+      border: 'var(--color-border)',
+    },
   };
 
   const current = styles[variant];
@@ -62,6 +69,7 @@ export const Badge: React.FC<BadgeProps> = ({
         color: current.text,
         border: `1px solid ${current.border}`,
         lineHeight: 1,
+        ...style,
       }}
     >
       {children}
