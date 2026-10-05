@@ -12,7 +12,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../src/config/ipc-channels';
-import type { ServiceResult, AuthResult, User, DatabaseValidationResult, DatabaseSchema, ChatMessage, AIResponse, QueryResult } from '../../src/types/index';
+import type { ServiceResult, AuthResult, User, DatabaseValidationResult, DatabaseSchema, ChatMessage, AIResponse, QueryResult, SQLOptimizationResult } from '../../src/types/index';
 
 // ─── Renderer-Facing API Type ─────────────────────────────────
 // This type is mirrored in src/types/electron.d.ts for Next.js
@@ -48,6 +48,7 @@ export interface ElectronAPI {
   ai: {
     generateSQL: (messages: ChatMessage[]) => Promise<ServiceResult<AIResponse>>;
     setApiKey: (apiKey: string) => Promise<void>;
+    optimizeSQL: (sql: string) => Promise<ServiceResult<SQLOptimizationResult>>;
   };
   // query: { prepare, execute, explain }
 
@@ -99,5 +100,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ai: {
     generateSQL: (messages: ChatMessage[]) => ipcRenderer.invoke('ai:generateSQL', messages),
     setApiKey: (apiKey: string) => ipcRenderer.invoke('ai:setApiKey', apiKey),
+    optimizeSQL: (sql: string) => ipcRenderer.invoke('ai:optimizeSQL', sql),
   },
 } satisfies ElectronAPI);

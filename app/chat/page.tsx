@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AppLayout } from '@/src/components/layout/AppLayout';
 import { Card } from '@/src/components/ui/Card';
-import { ChatMessage } from '@/src/types';
-import { Send, Bot, User, Database, Settings } from 'lucide-react';
+import { ChatMessage, SQLOptimizationResult } from '@/src/types';
+import { Send, Bot, User, Database, Settings, Zap } from 'lucide-react';
 import { useDatabaseContext } from '@/src/contexts/DatabaseContext';
 
 export default function ChatPage() {
@@ -73,6 +73,28 @@ export default function ChatPage() {
       setMessages([...newMessages, { role: 'assistant', content: `**Error:** Failed to connect to AI provider.` }]);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleOptimize = async (index: number, sql: string) => {
+    // Set isOptimizing to true for this message
+    const newMessages = [...messages];
+    newMessages[index].isOptimizing = true;
+    setMessages(newMessages);
+
+    try {
+      const res = await window.electronAPI!.ai.optimizeSQL(sql);
+      const msgs = [...messages];
+      msgs[index].isOptimizing = false;
+      
+      if (res.success) {
+        msgs[index].optimizationResult = res.data;
+      }
+      setMessages(msgs);
+    } catch (e) {
+      const msgs = [...messages];
+      msgs[index].isOptimizing = false;
+      setMessages(msgs);
     }
   };
 
@@ -190,6 +212,63 @@ export default function ChatPage() {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Optimize Button for Assistant messages containing SQL */}
+                  {m.role === 'assistant' && m.content.includes('\`\`\`sql') && !m.optimizationResult && (
+                    <button 
+                      onClick={() => {
+                        const sqlMatch = m.content.match(/\`\`\`sql\n([\s\S]*?)\n\`\`\`/);
+                        if (sqlMatch && sqlMatch[1]) {
+                          handleOptimize(i, sqlMatch[1]);
+                        }
+                      }}
+                      disabled={m.isOptimizing}
+                      style={{ 
+                        marginTop: '0.75rem', 
+                        display: 'flex', gap: '0.5rem', alignItems: 'center', 
+                        background: 'transparent', border: '1px solid var(--color-border)', 
+                        color: 'var(--color-text-secondary)', padding: '0.4rem 0.8rem', 
+                        borderRadius: 'var(--radius-sm)', cursor: m.isOptimizing ? 'not-allowed' : 'pointer',
+                        fontSize: '0.8rem'
+                      }}
+                    >
+                      <Zap size={14} color="var(--color-accent)" /> 
+                      {m.isOptimizing ? 'Optimizing...' : 'Optimize Query'}
+                    </button>
+                  )}
+
+                  {/* Optimization Results */}
+                  {m.optimizationResult && (
+                    <div style={{ marginTop: '1rem', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-accent)', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.5rem 1rem', background: 'var(--color-bg-elevated)', borderBottom: '1px solid var(--color-accent)', fontSize: '0.8rem', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                        <Zap size={14} color="var(--color-accent)" /> SQL Optimizer Suggestions
+                      </div>
+                      <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
+                        {m.optimizationResult.issues.length > 0 && (
+                          <div>
+                            <strong style={{ color: '#ef4444' }}>Issues Detected:</strong>
+                            <ul style={{ margin: '0.25rem 0 0 1.25rem', color: 'var(--color-text-secondary)' }}>
+                              {m.optimizationResult.issues.map((issue, idx) => <li key={idx}>{issue}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {m.optimizationResult.suggestions.length > 0 && (
+                          <div>
+                            <strong style={{ color: '#10b981' }}>Suggestions:</strong>
+                            <ul style={{ margin: '0.25rem 0 0 1.25rem', color: 'var(--color-text-secondary)' }}>
+                              {m.optimizationResult.suggestions.map((sug, idx) => <li key={idx}>{sug}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        <div>
+                          <strong>Optimized SQL:</strong>
+                          <pre style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginTop: '0.25rem', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                            <code style={{ color: 'var(--color-accent)' }}>{m.optimizationResult.optimizedSql}</code>
+                          </pre>
+                        </div>
                       </div>
                     </div>
                   )}

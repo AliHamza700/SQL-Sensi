@@ -3,6 +3,7 @@ import { ChatMessage, AIResponse } from '@/src/types';
 
 export interface IAIProvider {
   generateSQL(messages: ChatMessage[], schemaDDL: string): Promise<AIResponse>;
+  optimizeSQL(sql: string, schemaDDL: string): Promise<import('@/src/types').SQLOptimizationResult>;
 }
 
 export class GroqProvider implements IAIProvider {
@@ -67,5 +68,38 @@ RULES:
       message: 'Generated SQL',
       sql,
     };
+  }
+
+  public async optimizeSQL(sql: string, schemaDDL: string): Promise<import('@/src/types').SQLOptimizationResult> {
+    const systemPrompt = `
+You are "SQL Sensi", an expert Database Administrator.
+Your task is to analyze the provided SQL query and optimize it based on the schema.
+Detect inefficiencies such as "SELECT *", missing indexes, or unnecessary joins.
+You MUST reply with a STRICT JSON object in this exact format, with no markdown formatting around it (do not use \`\`\`json):
+{
+  "issues": ["list of detected issues"],
+  "suggestions": ["list of suggestions"],
+  "optimizedSql": "the optimized SQL string"
+}
+
+DATABASE SCHEMA:
+${schemaDDL}
+`;
+
+    const apiMessages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt.trim() },
+      { role: 'user', content: `Optimize this query: \n\n${sql}` }
+    ];
+
+    const completion = await this.client.chat.completions.create({
+      messages: apiMessages,
+      model: this.model,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      max_tokens: 1000,
+    });
+
+    const responseContent = completion.choices[0]?.message?.content?.trim() || '{}';
+    return JSON.parse(responseContent);
   }
 }

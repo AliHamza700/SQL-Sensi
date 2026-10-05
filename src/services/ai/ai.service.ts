@@ -1,7 +1,7 @@
 import { IAIProvider, GroqProvider } from './ai.provider';
 import { formatSchemaToDDL } from './schema.formatter';
 import { schemaService } from '../schema/schema.service';
-import { ChatMessage, AIResponse, ServiceResult } from '@/src/types';
+import { ChatMessage, AIResponse, ServiceResult, SQLOptimizationResult } from '@/src/types';
 import { createError } from '@/src/utils/errors';
 
 export class AIService {
@@ -68,6 +68,37 @@ export class AIService {
       return {
         success: false,
         error: createError('AI_ERROR', `Failed to generate response: ${msg}`),
+      };
+    }
+  }
+
+  public async optimizeSQL(sql: string): Promise<ServiceResult<SQLOptimizationResult>> {
+    try {
+      if (!this.provider) {
+        return {
+          success: false,
+          error: createError('AI_ERROR', 'AI Provider is not configured. Please set GROQ_API_KEY.'),
+        };
+      }
+
+      const schemaRes = await schemaService.extractSchema();
+      if (!schemaRes.success) {
+        return { success: false, error: schemaRes.error };
+      }
+
+      const ddl = formatSchemaToDDL(schemaRes.data);
+      const response = await this.provider.optimizeSQL(sql, ddl);
+
+      return {
+        success: true,
+        data: response,
+      };
+
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown AI optimization error';
+      return {
+        success: false,
+        error: createError('AI_ERROR', `Failed to optimize SQL: ${msg}`),
       };
     }
   }

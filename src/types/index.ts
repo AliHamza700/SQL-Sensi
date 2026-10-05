@@ -32,6 +32,8 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   queryResult?: QueryResult;
+  optimizationResult?: SQLOptimizationResult;
+  isOptimizing?: boolean;
 }
 
 export interface AIResponse {
@@ -40,6 +42,11 @@ export interface AIResponse {
   isAmbiguous: boolean;
 }
 
+export interface SQLOptimizationResult {
+  issues: string[];
+  suggestions: string[];
+  optimizedSql: string;
+}
 
 export interface TableSchema {
   name: string;
