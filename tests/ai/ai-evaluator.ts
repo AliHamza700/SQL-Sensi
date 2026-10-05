@@ -8,9 +8,9 @@ import { formatSchemaToDDL } from '../../src/services/ai/schema.formatter';
 
 dotenv.config();
 
-const DB_PATH = path.join(__dirname, '..', '..', 'chinook.db');
-const TEST_FILE = path.join(__dirname, 'test-questions.json');
-const RESULTS_FILE = path.join(__dirname, 'evaluation-results.md');
+const DB_PATH = path.join(process.cwd(), 'chinook.db');
+const TEST_FILE = path.join(process.cwd(), 'tests', 'ai', 'test-questions.json');
+const RESULTS_FILE = path.join(process.cwd(), 'tests', 'ai', 'evaluation-results.md');
 
 interface TestQuestion {
   id: number;
@@ -32,15 +32,15 @@ async function runEvaluation() {
   // 1. Setup Services & Load Schema
   console.log('Loading chinook.db schema...');
   const dbService = DatabaseService.getInstance();
-  const connectRes = dbService.connect(DB_PATH);
+  const connectRes = await dbService.connect(DB_PATH);
   
   if (!connectRes.success) {
-    console.error('Failed to connect to seed database:', connectRes.error);
+    console.error('Failed to connect to seed database:', connectRes.error?.message);
     process.exit(1);
   }
 
   const schemaService = SchemaService.getInstance();
-  const schemaRes = schemaService.extractSchema();
+  const schemaRes = await schemaService.extractSchema();
   
   if (!schemaRes.success) {
     console.error('Failed to extract schema:', schemaRes.error);
@@ -57,7 +57,7 @@ async function runEvaluation() {
   const results: string[] = [];
   results.push('# AI Evaluation Results\n');
   results.push(`**Date**: ${new Date().toISOString()}\n`);
-  results.push(`**Model**: llama3-70b-8192 (Groq)\n\n`);
+  results.push(`**Model**: llama-3.1-8b-instant (Groq)\n\n`);
   
   let passed = 0;
 

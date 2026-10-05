@@ -9,7 +9,7 @@ export class GroqProvider implements IAIProvider {
   private client: Groq;
   private model: string;
 
-  constructor(apiKey: string, model: string = 'llama3-70b-8192') {
+  constructor(apiKey: string, model: string = 'qwen/qwen3.8-27b') {
     this.client = new Groq({ apiKey });
     this.model = model;
   }
@@ -42,7 +42,7 @@ RULES:
       messages: apiMessages,
       model: this.model,
       temperature: 0,
-      max_tokens: 1024,
+      max_tokens: 500,
     });
 
     const responseContent = completion.choices[0]?.message?.content?.trim() || '';

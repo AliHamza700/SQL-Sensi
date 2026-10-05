@@ -43,6 +43,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",
+    "dotenv": "^18.0.5",
     "electron": "^31.0.0",
     "electron-builder": "^24.9.0",
     "eslint": "^8.57.0",

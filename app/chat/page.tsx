@@ -45,9 +45,24 @@ export default function ChatPage() {
         if (aiMsg.isAmbiguous) {
           setMessages([...newMessages, { role: 'assistant', content: aiMsg.message }]);
         } else {
+          let queryData;
+          if (aiMsg.sql) {
+            try {
+              const execRes = await window.electronAPI!.database.executeQuery(aiMsg.sql);
+              if (execRes.success) {
+                queryData = execRes.data;
+              } else {
+                queryData = { columns: ['Error'], rows: [{ Error: execRes.error?.message || 'Query failed' }], rowCount: 1, executionTimeMs: 0 };
+              }
+            } catch (err: any) {
+              queryData = { columns: ['Error'], rows: [{ Error: err.message }], rowCount: 1, executionTimeMs: 0 };
+            }
+          }
+
           setMessages([...newMessages, { 
             role: 'assistant', 
-            content: `Here is the query I generated:\n\n\`\`\`sql\n${aiMsg.sql}\n\`\`\`` 
+            content: `Here is the query I generated:\n\n\`\`\`sql\n${aiMsg.sql}\n\`\`\``,
+            queryResult: queryData
           }]);
         }
       } else {
@@ -144,10 +159,40 @@ export default function ChatPage() {
                   maxWidth: '75%',
                   fontSize: '0.9rem',
                   lineHeight: 1.5,
-                  whiteSpace: 'pre-wrap',
                   border: m.role === 'assistant' ? '1px solid var(--color-border)' : 'none'
                 }}>
-                  {m.content}
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                  
+                  {m.queryResult && (
+                    <div style={{ marginTop: '1rem', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.5rem 1rem', background: 'var(--color-bg-elevated)', borderBottom: '1px solid var(--color-border)', fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Query Results ({m.queryResult.rowCount} rows)</span>
+                        <span>{m.queryResult.executionTimeMs}ms</span>
+                      </div>
+                      <div style={{ overflowX: 'auto', maxHeight: '300px', overflowY: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-elevated)' }}>
+                            <tr>
+                              {m.queryResult.columns.map((col, idx) => (
+                                <th key={idx} style={{ padding: '0.5rem 1rem', textAlign: 'left', borderBottom: '1px solid var(--color-border)', fontWeight: 600 }}>{col}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {m.queryResult.rows.map((row, rIdx) => (
+                              <tr key={rIdx} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                {m.queryResult!.columns.map((col, cIdx) => (
+                                  <td key={cIdx} style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}>
+                                    {String(row[col] ?? 'NULL')}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
