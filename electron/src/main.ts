@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
@@ -6,6 +9,8 @@ import { registerAuthHandlers } from './ipc/auth.ipc';
 import { registerDatabaseHandlers } from './ipc/database.ipc';
 import { registerSchemaHandlers } from './ipc/schema.ipc';
 import { registerAIHandlers } from './ipc/ai.ipc';
+import { registerHistoryHandlers } from './ipc/history.ipc';
+import { registerExportHandlers } from './ipc/export.ipc';
 
 // ─── Constants ───────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
@@ -125,4 +130,5 @@ registerAuthHandlers();
 registerDatabaseHandlers();
 registerSchemaHandlers();
 registerAIHandlers();
-
+registerHistoryHandlers();
+registerExportHandlers();
