@@ -4,6 +4,7 @@ import { ChatMessage, AIResponse } from '@/src/types';
 export interface IAIProvider {
   generateSQL(messages: ChatMessage[], schemaDDL: string): Promise<AIResponse>;
   optimizeSQL(sql: string, schemaDDL: string): Promise<import('@/src/types').SQLOptimizationResult>;
+  explainQueryPlan(sql: string, planRaw: string, schemaDDL: string): Promise<import('@/src/types').QueryPlanExplanation>;
 }
 
 export class GroqProvider implements IAIProvider {
@@ -89,6 +90,39 @@ ${schemaDDL}
     const apiMessages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt.trim() },
       { role: 'user', content: `Optimize this query: \n\n${sql}` }
+    ];
+
+    const completion = await this.client.chat.completions.create({
+      messages: apiMessages,
+      model: this.model,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      max_tokens: 1000,
+    });
+
+    const responseContent = completion.choices[0]?.message?.content?.trim() || '{}';
+    return JSON.parse(responseContent);
+  }
+
+  public async explainQueryPlan(sql: string, planRaw: string, schemaDDL: string): Promise<import('@/src/types').QueryPlanExplanation> {
+    const systemPrompt = `
+You are "SQL Sensi", an expert Database Administrator.
+Your task is to analyze the provided SQLite EXPLAIN QUERY PLAN output and explain it in simple, human-readable terms.
+Identify how the database is accessing the data (e.g., using an index, doing a full table scan) and highlight any potential performance issues.
+You MUST reply with a STRICT JSON object in this exact format, with no markdown formatting around it (do not use \`\`\`json):
+{
+  "humanReadable": "A plain english explanation of how SQLite executes this query.",
+  "performanceIssues": ["List of any performance bottlenecks found in the plan, such as SCAN TABLE"],
+  "suggestions": ["List of suggestions to improve the plan, e.g., Add an index on column X"]
+}
+
+DATABASE SCHEMA:
+${schemaDDL}
+`;
+
+    const apiMessages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt.trim() },
+      { role: 'user', content: `Query:\n${sql}\n\nPlan:\n${planRaw}` }
     ];
 
     const completion = await this.client.chat.completions.create({

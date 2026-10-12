@@ -1,7 +1,7 @@
 import { IAIProvider, GroqProvider } from './ai.provider';
 import { formatSchemaToDDL } from './schema.formatter';
 import { schemaService } from '../schema/schema.service';
-import { ChatMessage, AIResponse, ServiceResult, SQLOptimizationResult } from '@/src/types';
+import { ChatMessage, AIResponse, ServiceResult, SQLOptimizationResult, QueryPlan, QueryPlanExplanation } from '@/src/types';
 import { createError } from '@/src/utils/errors';
 
 export class AIService {
@@ -99,6 +99,37 @@ export class AIService {
       return {
         success: false,
         error: createError('AI_ERROR', `Failed to optimize SQL: ${msg}`),
+      };
+    }
+  }
+
+  public async explainQueryPlan(sql: string, plan: QueryPlan): Promise<ServiceResult<QueryPlanExplanation>> {
+    try {
+      if (!this.provider) {
+        return {
+          success: false,
+          error: createError('AI_ERROR', 'AI Provider is not configured. Please set GROQ_API_KEY.'),
+        };
+      }
+
+      const schemaRes = await schemaService.extractSchema();
+      if (!schemaRes.success) {
+        return { success: false, error: schemaRes.error };
+      }
+
+      const ddl = formatSchemaToDDL(schemaRes.data);
+      const response = await this.provider.explainQueryPlan(sql, plan.rawOutput, ddl);
+
+      return {
+        success: true,
+        data: response,
+      };
+
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown AI query explanation error';
+      return {
+        success: false,
+        error: createError('AI_ERROR', `Failed to explain query plan: ${msg}`),
       };
     }
   }

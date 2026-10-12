@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { validateDatabaseFile } from '../../../src/services/database/database.validator';
 import { databaseService } from '../../../src/services/database/database.service';
-import { DatabaseValidationResult, ServiceResult, QueryResult } from '../../../src/types';
+import { DatabaseValidationResult, ServiceResult, QueryResult, QueryPlan } from '../../../src/types';
 import { sqlSecurityService } from '../../../src/services/security/sql-security.service';
 
 export function registerDatabaseHandlers() {
@@ -22,5 +22,16 @@ export function registerDatabaseHandlers() {
     
     // 2. Execute query if safe
     return await databaseService.executeQuery(securityCheck.data!);
+  });
+
+  ipcMain.handle('database:explainQuery', async (_, sql: string): Promise<ServiceResult<QueryPlan>> => {
+    // 1. Validate SQL security
+    const securityCheck = sqlSecurityService.validateQuery(sql);
+    if (!securityCheck.success) {
+      return { success: false, error: securityCheck.error };
+    }
+    
+    // 2. Explain query if safe
+    return await databaseService.explainQuery(securityCheck.data!);
   });
 }

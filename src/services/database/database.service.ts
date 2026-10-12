@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { DatabaseValidationResult, ServiceResult, QueryResult } from '@/src/types';
+import { DatabaseValidationResult, ServiceResult, QueryResult, QueryPlan, QueryPlanNode } from '@/src/types';
 import { createError } from '@/src/utils/errors';
 import { validateDatabaseFile } from './database.validator';
 
@@ -141,6 +141,57 @@ export class DatabaseService {
       return {
         success: false,
         error: createError('SQL_EXECUTION_ERROR', `Query failed: ${msg}`),
+      };
+    }
+  }
+
+  /**
+   * Executes EXPLAIN QUERY PLAN on the given SQL and returns the query plan nodes.
+   */
+  public explainQuery(sql: string): ServiceResult<QueryPlan> {
+    try {
+      const db = this.getConnection(); // Throws if disconnected
+      
+      const upperSql = sql.trim().toUpperCase();
+      const forbidden = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'REPLACE', 'TRUNCATE'];
+      if (forbidden.some(word => upperSql.startsWith(word))) {
+        return {
+          success: false,
+          error: createError('SQL_VALIDATION_ERROR', 'Only read-only queries can be explained.'),
+        };
+      }
+
+      const explainSql = `EXPLAIN QUERY PLAN ${sql}`;
+      const stmt = db.prepare(explainSql);
+      
+      // Expected structure from SQLite EXPLAIN QUERY PLAN: id, parent, notused, detail
+      const rows = stmt.all() as { id: number; parent: number; detail: string }[];
+      
+      const nodes: QueryPlanNode[] = rows.map(r => ({
+        id: r.id,
+        parentId: r.parent,
+        detail: r.detail,
+      }));
+
+      // Generate a raw text representation for fallback/advanced view
+      const rawOutput = nodes.map(n => {
+        const indent = '  '.repeat(n.parentId > 0 ? 1 : 0); // Simplified indentation, for a real tree we'd need recursive building
+        return `${indent}- ${n.detail}`;
+      }).join('\n');
+
+      return {
+        success: true,
+        data: {
+          nodes,
+          rawOutput,
+        },
+      };
+
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown explain query error';
+      return {
+        success: false,
+        error: createError('SQL_EXECUTION_ERROR', `Explain Query failed: ${msg}`),
       };
     }
   }

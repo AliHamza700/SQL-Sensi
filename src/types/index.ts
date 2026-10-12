@@ -33,7 +33,9 @@ export interface ChatMessage {
   content: string;
   queryResult?: QueryResult;
   optimizationResult?: SQLOptimizationResult;
+  queryPlan?: QueryPlan;
   isOptimizing?: boolean;
+  isExplaining?: boolean;
 }
 
 export interface AIResponse {
@@ -117,6 +119,8 @@ export interface QueryPlan {
   nodes: QueryPlanNode[];
   rawOutput: string;
   humanExplanation?: string;
+  performanceIssues?: string[];
+  suggestions?: string[];
 }
 
 // ─── AI Types ─────────────────────────────────────────────────
@@ -211,9 +215,11 @@ export interface ConversationMessage {
   content: string;
   sql?: string;
   executedSql?: string;
-  queryResult?: Pick<QueryResult, 'rowCount' | 'executionTimeMs'>;
-  optimizationResult?: OptimizationResult;
+  queryResult?: QueryResult;
+  optimizationResult?: SQLOptimizationResult;
   queryPlan?: QueryPlan;
+  isOptimizing?: boolean;
+  isExplaining?: boolean;
   createdAt: string;
 }
 
@@ -322,3 +328,5 @@ export interface AppError {
 export type ServiceResult<T> =
   | { success: true; data: T }
   | { success: false; error: AppError };
+
+

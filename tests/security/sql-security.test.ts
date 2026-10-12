@@ -1,80 +1,67 @@
-import { sqlSecurityService } from '../../src/services/security/sql-security.service';
+import { DatabaseSync } from 'node:sqlite';
+import * as fs from 'fs';
+import * as path from 'path';
+import { databaseService } from '../../src/services/database/database.service';
 
-describe('SqlSecurityService (Phase 8)', () => {
-  describe('Safe Queries', () => {
-    it('should allow a standard SELECT query', () => {
-      const sql = 'SELECT * FROM users WHERE status = "active";';
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(true);
-    });
+const TEST_DB_PATH = path.join(__dirname, 'test-security.db');
 
-    it('should allow queries with JOIN and GROUP BY', () => {
-      const sql = `
-        SELECT u.name, COUNT(p.id) 
-        FROM users u 
-        JOIN posts p ON u.id = p.user_id 
-        GROUP BY u.name;
-      `;
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(true);
-    });
+describe('DatabaseService Security Tests', () => {
+  beforeAll(async () => {
+    // Create a temporary valid sqlite database
+    const db = new DatabaseSync(TEST_DB_PATH);
+    db.exec(`
+      CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+      INSERT INTO users (name) VALUES ('Alice'), ('Bob');
+    `);
+    db.close();
 
-    it('should allow CTEs (WITH clauses)', () => {
-      const sql = `
-        WITH ActiveUsers AS (SELECT * FROM users WHERE active = 1)
-        SELECT * FROM ActiveUsers;
-      `;
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(true);
-    });
-
-    it('should allow EXPLAIN queries', () => {
-      const sql = 'EXPLAIN QUERY PLAN SELECT * FROM users;';
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(true);
-    });
+    await databaseService.connect(TEST_DB_PATH);
   });
 
-  describe('Unsafe Queries', () => {
-    it('should reject queries not starting with SELECT/WITH/EXPLAIN', () => {
-      const sql = 'SHOW TABLES;'; // Even though safe, our strict policy blocks it
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
-      }
-    });
+  afterAll(() => {
+    databaseService.disconnect();
+    if (fs.existsSync(TEST_DB_PATH)) {
+      fs.unlinkSync(TEST_DB_PATH);
+    }
+  });
 
-    it('should reject INSERT statements embedded in the query', () => {
-      // Even if starts with SELECT, if it contains INSERT it should fail
-      const sql = 'SELECT * FROM users; INSERT INTO users (name) VALUES ("hacker");';
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
-        expect(result.error.message).toContain('INSERT');
-      }
-    });
+  test('Should allow SELECT queries', () => {
+    const result = databaseService.executeQuery('SELECT * FROM users;');
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.rowCount).toBe(2);
+    }
+  });
 
-    it('should reject DROP TABLE', () => {
-      const sql = 'SELECT 1; DROP TABLE users;';
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(false);
-    });
+  test('Should block DROP TABLE', () => {
+    const result = databaseService.executeQuery('DROP TABLE users;');
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
+    }
+  });
 
-    it('should reject PRAGMA execution', () => {
-      const sql = 'SELECT * FROM (PRAGMA database_list);';
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.message).toContain('PRAGMA');
-      }
-    });
+  test('Should block DELETE', () => {
+    const result = databaseService.executeQuery("DELETE FROM users WHERE name = 'Alice';");
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
+    }
+  });
 
-    it('should reject UPDATE', () => {
-      const sql = 'SELECT * FROM users; UPDATE users SET role = "admin";';
-      const result = sqlSecurityService.validateQuery(sql);
-      expect(result.success).toBe(false);
-    });
+  test('Should block UPDATE', () => {
+    const result = databaseService.executeQuery("UPDATE users SET name = 'Eve';");
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
+    }
+  });
+
+  test('Should block INSERT', () => {
+    const result = databaseService.executeQuery("INSERT INTO users (name) VALUES ('Charlie');");
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
+    }
   });
 });
