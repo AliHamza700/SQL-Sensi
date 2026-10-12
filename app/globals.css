@@ -187,3 +187,51 @@ h6 { font-size: 0.75rem; font-weight: 600; line-height: 1.5; }
 .animate-fade-in { animation: fadeIn var(--transition-normal) forwards; }
 .animate-spin    { animation: spin 1s linear infinite; }
 .animate-pulse   { animation: pulse 2s ease infinite; }
+
+/* ─── Sidebar Hover Effects ────────────────────────────────── */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-nav-item:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.sidebar-nav-item.active {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+}
+
+.sidebar-nav-item .icon-container {
+  color: inherit;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-nav-item.active .icon-container {
+  color: var(--color-accent);
+}
+
+/* ─── Card Hover Effects ───────────────────────────────────── */
+.card {
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+}
+
+.card.hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-strong);
+}

@@ -164,10 +164,9 @@ export function useAuth(): UseAuthReturn {
 
       const result = await auth.register(email, password);
       if (result.success) {
-        const { user: newUser, session } = result.data;
-        saveSession(session.token, session.expiresAt);
-        setUser(newUser);
-        setSessionExpiresAt(session.expiresAt);
+        // By design, do NOT auto-login after registration.
+        // Revoke the auto-created session on the server side so it doesn't dangle.
+        auth.logout(result.data.session.token).catch(() => {});
       } else {
         setError(result.error);
       }

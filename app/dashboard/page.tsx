@@ -25,6 +25,11 @@ export default function DashboardPage() {
   const { isElectron, version, platform, loading, error } = useElectronInfo();
   const { user, logout, sessionExpiresAt } = useAuthContext();
   const { activeDatabasePath } = useDatabaseContext();
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -96,6 +101,7 @@ export default function DashboardPage() {
         {/* Quick Action Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
           <Card
+            hoverable
             title="Database Manager"
             subtitle="Connect or inspect SQLite .db files"
             headerAction={<Database size={18} style={{ color: 'var(--color-accent)' }} />}
@@ -111,6 +117,7 @@ export default function DashboardPage() {
           </Card>
 
           <Card
+            hoverable
             title="Schema Explorer"
             subtitle="11 Tables, 62 Columns identified"
             headerAction={<Table size={18} style={{ color: 'var(--color-accent)' }} />}
@@ -126,6 +133,7 @@ export default function DashboardPage() {
           </Card>
 
           <Card
+            hoverable
             title="Natural Language Chat"
             subtitle="Ask questions in plain English"
             headerAction={<MessageSquare size={18} style={{ color: 'var(--color-accent)' }} />}
@@ -141,6 +149,7 @@ export default function DashboardPage() {
           </Card>
 
           <Card
+            hoverable
             title="SQL Editor & Optimizer"
             subtitle="Review, edit & EXPLAIN plan"
             headerAction={<Code2 size={18} style={{ color: 'var(--color-accent)' }} />}
@@ -171,7 +180,9 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', fontSize: '0.85rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>Environment:</span>
-                  <span style={{ fontFamily: 'var(--font-mono)' }}>{isElectron ? 'Electron Desktop' : 'Web Browser Preview'}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>
+                    {!isMounted ? 'Web Browser Preview' : (isElectron ? 'Electron Desktop' : 'Web Browser Preview')}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>App Version:</span>
@@ -179,7 +190,9 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>Platform:</span>
-                  <span style={{ fontFamily: 'var(--font-mono)' }}>{platform ?? (typeof navigator !== 'undefined' ? navigator.platform : 'win32')}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>
+                    {!isMounted ? 'win32' : (platform ?? (typeof navigator !== 'undefined' ? navigator.platform : 'win32'))}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>SQLite Driver:</span>

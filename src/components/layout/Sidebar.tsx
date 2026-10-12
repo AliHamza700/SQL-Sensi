@@ -116,27 +116,9 @@ export const Sidebar: React.FC = () => {
             <Link
               key={item.href}
               href={item.href}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.5rem 0.75rem',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.85rem',
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                backgroundColor: isActive ? 'var(--color-bg-elevated)' : 'transparent',
-                border: isActive ? '1px solid var(--color-border-strong)' : '1px solid transparent',
-                transition: 'all var(--transition-fast)',
-              }}
+              className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
             >
-              <span
-                style={{
-                  color: isActive ? 'var(--color-accent)' : 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
+              <span className="icon-container">
                 {item.icon}
               </span>
               <span style={{ flex: 1 }}>{item.label}</span>

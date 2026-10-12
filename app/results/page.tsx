@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AppLayout } from '@/src/components/layout/AppLayout';
 import { Card } from '@/src/components/ui/Card';
 import { Button } from '@/src/components/ui/Button';
@@ -8,144 +9,220 @@ import {
   Table as TableIcon,
   BarChart2,
   PieChart,
+  LineChart,
+  ScatterChart,
   Download,
   Clock,
   Rows,
   FileSpreadsheet,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
+import { inferColumnTypes, autoSelectChartType, ChartType } from '@/src/utils/visualization';
+import { ChartRenderer } from '@/src/components/visualization/ChartRenderer';
 
-interface MockRow {
-  CustomerId: number;
-  CustomerName: string;
-  TotalSpent: number;
-}
+function ResultsContent() {
+  const searchParams = useSearchParams();
+  const sql = searchParams.get('sql');
+  
+  const [chartType, setChartType] = useState<ChartType>('table');
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-const sampleResults: MockRow[] = [
-  { CustomerId: 6, CustomerName: 'Helena Holý', TotalSpent: 49.62 },
-  { CustomerId: 26, CustomerName: 'Richard Cunha', TotalSpent: 47.62 },
-  { CustomerId: 57, CustomerName: 'Luis Rojas', TotalSpent: 46.62 },
-  { CustomerId: 45, CustomerName: 'Ladislav Kovács', TotalSpent: 45.62 },
-  { CustomerId: 46, CustomerName: 'Hugh O\'Reilly', TotalSpent: 45.62 },
-];
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
-export default function ResultsPage() {
-  const [chartType, setChartType] = useState<'table' | 'bar' | 'pie'>('table');
+  useEffect(() => {
+    async function execute() {
+      if (!sql) {
+        setErrorMsg('No SQL query provided.');
+        setLoading(false);
+        return;
+      }
+      const electron = window.electronAPI;
+      if (!electron) return;
+
+      try {
+        const res = await electron.database.executeQuery(sql);
+        if (res.success) {
+          setData(res.data);
+          
+          // Auto-select chart type
+          const meta = inferColumnTypes(res.data.columns, res.data.rows);
+          const autoChart = autoSelectChartType(meta, res.data.rowCount);
+          setChartType(autoChart);
+        } else {
+          setErrorMsg(res.error?.message || 'Failed to execute query.');
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    execute();
+  }, [sql]);
+
+  if (loading) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Executing query...</div>;
+  }
+
+  if (errorMsg) {
+    return (
+      <div style={{ padding: '2rem' }}>
+        <div style={{ padding: '1rem', backgroundColor: 'var(--color-bg-elevated)', borderLeft: '4px solid #ef4444', borderRadius: 'var(--radius-md)' }}>
+          <strong style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertTriangle size={16} /> Execution Error
+          </strong> 
+          <p style={{ marginTop: '0.5rem' }}>{errorMsg}</p>
+          <pre style={{ marginTop: '1rem', padding: '0.5rem', background: '#000', color: '#fff', fontSize: '0.8rem' }}>{sql}</pre>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  // Pagination logic
+  const totalPages = Math.ceil(data.rowCount / pageSize);
+  const paginatedRows = data.rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Export handlers
+  const handleExportCSV = async () => {
+    if (!data) return;
+    const { convertToCSV } = await import('@/src/utils/export');
+    const csvStr = convertToCSV(data);
+    const res = await window.electronAPI!.export.saveData(csvStr, 'export.csv', 'csv');
+    if (res.success) {
+      console.log('Saved CSV to', res.data);
+    }
+  };
+
+  const handleExportJSON = async () => {
+    if (!data) return;
+    const jsonStr = JSON.stringify(data, null, 2);
+    const res = await window.electronAPI!.export.saveData(jsonStr, 'export.json', 'json');
+    if (res.success) {
+      console.log('Saved JSON to', res.data);
+    }
+  };
 
   return (
-    <AppLayout title="Query Results & Visualization" databaseName="chinook.db">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1100px' }}>
-        {/* Results Header with Metadata */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Results & Visualizations</h1>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <Clock size={14} /> 4.2 ms execution time
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <Rows size={14} /> 5 rows returned
-              </span>
-            </div>
-          </div>
-
-          {/* Export Dropdown / Actions */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Button variant="outline" size="sm" icon={<Download size={14} />}>
-              CSV
-            </Button>
-            <Button variant="outline" size="sm" icon={<FileSpreadsheet size={14} />}>
-              Excel
-            </Button>
-            <Button variant="outline" size="sm" icon={<Download size={14} />}>
-              PDF
-            </Button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1100px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Results & Visualizations</h1>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Clock size={14} /> {data.executionTimeMs.toFixed(2)} ms execution time
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Rows size={14} /> {data.rowCount} rows returned
+            </span>
           </div>
         </div>
 
-        {/* View Switcher & Results Card */}
-        <Card
-          title="Data View"
-          headerAction={
-            <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: 'var(--color-bg-base)', padding: '0.2rem', borderRadius: 'var(--radius-md)' }}>
-              <Button
-                variant={chartType === 'table' ? 'primary' : 'ghost'}
-                size="sm"
-                icon={<TableIcon size={14} />}
-                onClick={() => setChartType('table')}
-              >
-                Table
-              </Button>
-              <Button
-                variant={chartType === 'bar' ? 'primary' : 'ghost'}
-                size="sm"
-                icon={<BarChart2 size={14} />}
-                onClick={() => setChartType('bar')}
-              >
-                Bar Chart
-              </Button>
-              <Button
-                variant={chartType === 'pie' ? 'primary' : 'ghost'}
-                size="sm"
-                icon={<PieChart size={14} />}
-                onClick={() => setChartType('pie')}
-              >
-                Pie Chart
-              </Button>
-            </div>
-          }
-        >
-          {chartType === 'table' ? (
-            <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <Button variant="outline" size="sm" icon={<Download size={14} />} onClick={handleExportCSV}>CSV</Button>
+          <Button variant="outline" size="sm" icon={<FileSpreadsheet size={14} />} onClick={handleExportJSON}>JSON</Button>
+        </div>
+      </div>
+
+      <Card
+        title="Data View"
+        headerAction={
+          <div style={{ display: 'flex', gap: '0.25rem', backgroundColor: 'var(--color-bg-base)', padding: '0.2rem', borderRadius: 'var(--radius-md)' }}>
+            <Button variant={chartType === 'table' ? 'primary' : 'ghost'} size="sm" icon={<TableIcon size={14} />} onClick={() => setChartType('table')}>Table</Button>
+            <Button variant={chartType === 'bar' ? 'primary' : 'ghost'} size="sm" icon={<BarChart2 size={14} />} onClick={() => setChartType('bar')}>Bar</Button>
+            <Button variant={chartType === 'line' ? 'primary' : 'ghost'} size="sm" icon={<LineChart size={14} />} onClick={() => setChartType('line')}>Line</Button>
+            <Button variant={chartType === 'pie' ? 'primary' : 'ghost'} size="sm" icon={<PieChart size={14} />} onClick={() => setChartType('pie')}>Pie</Button>
+            <Button variant={chartType === 'scatter' ? 'primary' : 'ghost'} size="sm" icon={<ScatterChart size={14} />} onClick={() => setChartType('scatter')}>Scatter</Button>
+          </div>
+        }
+      >
+        {chartType === 'table' ? (
+          <div>
+            <div style={{ overflowX: 'auto', maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead>
+                <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-bg-elevated)', zIndex: 10 }}>
                   <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', color: 'var(--color-text-secondary)' }}>
-                    <th style={{ padding: '0.6rem 0.5rem' }}>CustomerId</th>
-                    <th style={{ padding: '0.6rem 0.5rem' }}>CustomerName</th>
-                    <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>TotalSpent ($)</th>
+                    {data.columns.map((col: string) => (
+                      <th key={col} style={{ padding: '0.6rem 0.5rem' }}>{col}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {sampleResults.map((row) => (
-                    <tr key={row.CustomerId} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '0.6rem 0.5rem', fontFamily: 'var(--font-mono)' }}>
-                        {row.CustomerId}
-                      </td>
-                      <td style={{ padding: '0.6rem 0.5rem', fontWeight: 500 }}>
-                        {row.CustomerName}
-                      </td>
-                      <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-accent)' }}>
-                        ${row.TotalSpent.toFixed(2)}
-                      </td>
+                  {paginatedRows.map((row: any, i: number) => (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      {data.columns.map((col: string) => (
+                        <td key={col} style={{ padding: '0.6rem 0.5rem', fontFamily: 'var(--font-mono)' }}>
+                          {row[col] !== null ? String(row[col]) : <span style={{ color: 'var(--color-text-muted)' }}>NULL</span>}
+                        </td>
+                      ))}
                     </tr>
                   ))}
+                  {paginatedRows.length === 0 && (
+                    <tr>
+                      <td colSpan={data.columns.length} style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                        No results found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div
-              style={{
-                height: '300px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'var(--color-bg-base)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--color-text-secondary)',
-                gap: '0.5rem',
-              }}
-            >
-              <BarChart2 size={40} style={{ color: 'var(--color-accent)' }} />
-              <p style={{ fontSize: '0.9rem' }}>
-                Interactive Chart.js visualizer ({chartType.toUpperCase()} mode).
-              </p>
-              <span style={{ fontSize: '0.75rem' }}>
-                Renders numeric columns (<code style={{ color: 'var(--color-accent)' }}>TotalSpent</code>) by category (<code style={{ color: 'var(--color-accent)' }}>CustomerName</code>).
-              </span>
-            </div>
-          )}
-        </Card>
-      </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', fontSize: '0.85rem' }}>
+                <div style={{ color: 'var(--color-text-secondary)' }}>
+                  Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, data.rowCount)} of {data.rowCount} rows
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    icon={<ChevronLeft size={14} />} 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                  >
+                    Prev
+                  </Button>
+                  <span style={{ padding: '0 0.5rem' }}>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    icon={<ChevronRight size={14} />} 
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ backgroundColor: 'var(--color-bg-base)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+            <ChartRenderer data={data} chartType={chartType} />
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <AppLayout title="Query Results & Visualization" databaseName="Active Database">
+      <Suspense fallback={<div>Loading...</div>}>
+        <ResultsContent />
+      </Suspense>
     </AppLayout>
   );
 }

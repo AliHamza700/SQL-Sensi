@@ -7,6 +7,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string;
   subtitle?: string;
   headerAction?: React.ReactNode;
+  hoverable?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -14,6 +15,7 @@ export const Card: React.FC<CardProps> = ({
   title,
   subtitle,
   headerAction,
+  hoverable,
   className,
   style,
   ...props
@@ -28,7 +30,7 @@ export const Card: React.FC<CardProps> = ({
         boxShadow: 'var(--shadow-sm)',
         ...style,
       }}
-      className={clsx('card', className)}
+      className={clsx('card', hoverable && 'hoverable', className)}
       {...props}
     >
       {(title || headerAction) && (

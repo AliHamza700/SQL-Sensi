@@ -53,10 +53,17 @@ export default function LoginPage() {
 
       if (result.success) {
         if (activeTab === 'register') {
-          setSuccessMsg('Account created! Redirecting to dashboard…');
+          setSuccessMsg('Account created successfully! Please sign in.');
+          setTimeout(() => {
+            setActiveTab('login');
+            setSuccessMsg(null);
+            setPassword('');
+            setConfirmPassword('');
+          }, 2000);
+        } else {
+          // Brief pause so user sees success state before navigation
+          setTimeout(() => router.push('/dashboard'), 400);
         }
-        // Brief pause so user sees success state before navigation
-        setTimeout(() => router.push('/dashboard'), 400);
       } else {
         // result.error is AppError { code, message, details }
         setErrorMsg(result.error.details ?? result.error.message);
