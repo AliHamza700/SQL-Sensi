@@ -28,7 +28,7 @@ export function inferColumnTypes(columns: string[], rows: Record<string, unknown
       } else if (typeof val === 'string') {
         // Basic check for temporal strings (e.g. YYYY-MM-DD or ISO strings)
         // matches '2023-01-01', '2023-01-01T12:00:00Z', etc.
-        const dateRegex = /^\\d{4}-\\d{2}-\\d{2}/;
+        const dateRegex = /^\d{4}-\d{2}-\d{2}/;
         if (dateRegex.test(val) && !isNaN(Date.parse(val))) {
           temporalCount++;
         } else {

@@ -18,7 +18,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   return (
     <AuthGuard>
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-base)' }}>
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-page)' }}>
         {/* Fixed Sidebar */}
       <Sidebar />
 
@@ -33,7 +33,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         }}
       >
         <Header title={title} databaseName={databaseName} />
-        <main style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
+        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
           {children}
         </main>
       </div>

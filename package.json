@@ -27,9 +27,12 @@
   "dependencies": {
     "chart.js": "^4.4.0",
     "clsx": "^2.1.0",
+    "framer-motion": "^14.7.1",
     "groq-sdk": "^1.6.0",
     "lucide-react": "^0.395.0",
+    "mysql2": "3.24.5",
     "next": "^14.2.0",
+    "pg": "8.23.1",
     "react": "^18.3.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.3.0"
@@ -37,6 +40,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
+    "@types/pg": "8.23.1",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
@@ -59,6 +63,7 @@
   "build": {
     "appId": "com.sqlsensi.app",
     "productName": "SQL Sensi",
+    "asar": true,
     "directories": {
       "output": "dist"
     },
@@ -66,11 +71,18 @@
       "electron-out/**/*",
       "out/**/*",
       "public/**/*",
-      "node_modules/**/*",
       "package.json"
     ],
+    "extraMetadata": {
+      "main": "electron-out/electron/src/main.js"
+    },
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
     },
     "mac": {
       "target": "dmg"

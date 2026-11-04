@@ -1,42 +1,37 @@
 /**
  * AIProvider Interface — SQL Sensi
  *
- * Architecture rule: Business logic depends on this interface,
- * NOT on any specific provider (Gemini, OpenAI, etc.)
+ * The ONLY contract between SQL Sensi and an LLM vendor (FR-14).
+ * It is deliberately low level: prompts, context building and answer
+ * validation live in ai.service.ts / context-builder.ts / response-parser.ts,
+ * so adding a provider means implementing `complete()` and nothing else.
  *
- * To add a new provider: implement this interface.
- * To swap providers: change config — no business logic changes needed.
+ * Groq is the default and currently only implementation (ai.provider.ts).
  */
 
-import type {
-  SQLGenerationInput,
-  SQLGenerationResult,
-  ClarificationInput,
-  ClarificationResult,
-  SQLExplanationInput,
-  SQLExplanationResult,
-  OptimizationInput,
-  OptimizationResult,
-  QueryPlanInput,
-  QueryPlanExplanation,
-} from '@/src/types';
-
-export interface AIProvider {
-  /** Convert a natural language question into SQL */
-  generateSQL(input: SQLGenerationInput): Promise<SQLGenerationResult>;
-
-  /** Detect ambiguity and ask for clarification before generating SQL */
-  clarifyQuestion(input: ClarificationInput): Promise<ClarificationResult>;
-
-  /** Produce a natural language explanation of a SQL query and its results */
-  explainSQL(input: SQLExplanationInput): Promise<SQLExplanationResult>;
-
-  /** Detect inefficiencies in SQL and suggest optimized rewrites */
-  optimizeSQL(input: OptimizationInput): Promise<OptimizationResult>;
-
-  /** Translate SQLite EXPLAIN QUERY PLAN output into plain English */
-  explainQueryPlan(input: QueryPlanInput): Promise<QueryPlanExplanation>;
+export interface AiChatTurn {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
-/** The name identifier of an AI provider */
-export type AIProviderName = 'gemini' | 'openai' | 'local';
+export interface AiCompletionRequest {
+  messages: AiChatTurn[];
+  /** Ask the provider for a single JSON object */
+  json: boolean;
+  maxTokens: number;
+  /** 0 for deterministic SQL work */
+  temperature: number;
+}
+
+export interface AiCompletion {
+  text: string;
+}
+
+export interface AIProvider {
+  /** Short provider id for logs and UI, e.g. "groq" */
+  readonly name: string;
+  complete(request: AiCompletionRequest): Promise<AiCompletion>;
+}
+
+/** Provider ids SQL Sensi knows about */
+export type AIProviderName = 'groq';

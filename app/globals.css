@@ -1,46 +1,89 @@
 /* ────────────────────────────────────────────────────────────
    SQL Sensi — Global Styles
-   Design System: Dark theme, professional, readable
+   Design System: V2 light theme (approved 2026-10-21)
+   Brand: #086288 deep blue · #4D8DBA mid blue · #97D7FF sky · #FFEFC4 cream
+   Rules: #4D8DBA is for borders/labels only (too light for small text);
+          #97D7FF and #FFEFC4 carry dark ink text only.
 ──────────────────────────────────────────────────────────── */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ─── CSS Custom Properties ────────────────────────────────── */
 :root {
-  /* Colors */
-  --color-bg-base:        #0d0d12;
-  --color-bg-surface:     #13131a;
-  --color-bg-elevated:    #1a1a24;
-  --color-bg-overlay:     #22222f;
-  --color-bg-hover:       #2a2a3a;
+  /* Brand */
+  --brand-deep:           #086288;
+  --brand-mid:            #4D8DBA;
+  --brand-sky:            #97D7FF;
+  --brand-cream:          #FFEFC4;
+  --brand-ink:            #0E2A38;
 
-  --color-border:         #2a2a3a;
-  --color-border-strong:  #3a3a50;
+  /* Colors (same names as V1, new values) */
+  --color-bg-page:        #FFF9EA;   /* page background (cream) */
+  --color-bg-base:        #F7FAFC;   /* inset panels inside cards: inputs, tables, chart areas */
+  --color-bg-surface:     #FFFFFF;   /* cards, header */
+  --color-bg-elevated:    #F4F8FB;   /* inner panels, inputs */
+  --color-bg-overlay:     #EAF7FF;
+  --color-bg-hover:       #EAF4FA;
 
-  --color-text-primary:   #f0f0f8;
-  --color-text-secondary: #a0a0b8;
-  --color-text-muted:     #6060780;
-  --color-text-disabled:  #404055;
+  --color-border:         #E3EDF3;
+  --color-border-strong:  #B9CFDC;
 
-  --color-accent:         #6366f1;   /* Indigo */
-  --color-accent-hover:   #4f46e5;
-  --color-accent-muted:   #6366f120;
+  --color-text-primary:   #0E2A38;
+  --color-text-secondary: #4A6272;   /* 6.4:1 on white */
+  --color-text-muted:     #5E7380;   /* 5:1 on white */
+  --color-text-disabled:  #8A9BA6;   /* disabled controls only */
 
-  --color-success:        #22c55e;
-  --color-success-muted:  #22c55e20;
-  --color-warning:        #f59e0b;
-  --color-warning-muted:  #f59e0b20;
-  --color-danger:         #ef4444;
-  --color-danger-muted:   #ef444420;
-  --color-info:           #38bdf8;
-  --color-info-muted:     #38bdf820;
+  --color-accent:         #086288;
+  --color-accent-hover:   #064B69;
+  --color-accent-muted:   #EAF7FF;
+  --color-on-accent:      #FFFFFF;
 
-  /* SQL Syntax */
-  --color-sql-keyword:    #c792ea;
-  --color-sql-function:   #82aaff;
-  --color-sql-string:     #c3e88d;
-  --color-sql-number:     #f78c6c;
-  --color-sql-comment:    #546e7a;
+  --color-success:        #1A6E3F;
+  --color-success-muted:  #E6F4EC;
+  --color-warning:        #7A5200;
+  --color-warning-muted:  #FFEFC4;
+  --color-danger:         #B42318;
+  --color-danger-muted:   #FDE8E4;
+  --color-info:           #1F5F8B;
+  --color-info-muted:     #EAF7FF;
+
+  /* Sidebar (deep blue) */
+  --color-sidebar-bg:          #086288;
+  --color-sidebar-text:        #FFFFFF;
+  --color-sidebar-text-muted:  #FFEFC4;
+  --color-sidebar-hover:       #0A5577;
+  --color-sidebar-active-bg:   #97D7FF;
+  --color-sidebar-active-text: #0E2A38;
+
+  /* Code blocks stay dark ink with light text */
+  --color-code-bg:        #0E2A38;
+  --color-code-text:      #F2F7FA;
+
+  /* SQL Syntax (on --color-code-bg) */
+  --color-sql-keyword:    #97D7FF;
+  --color-sql-function:   #B8E2FF;
+  --color-sql-string:     #FFEFC4;
+  --color-sql-number:     #FFC48A;
+  --color-sql-comment:    #8FA9B8;
+
+  /* Chart series — validated categorical order (dataviz validator, light surface) */
+  --chart-1: #0a6fa8;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #6250d6;
+  --chart-8: #e34948;
+  --chart-grid: #E3EDF3;
+  --chart-axis: #4A6272;
+
+  /* Hover / press feedback */
+  --hover-tint:         rgba(8, 98, 136, 0.07);
+  --press-tint:         rgba(8, 98, 136, 0.13);
+  --hover-tint-on-dark: rgba(255, 255, 255, 0.12);
+  --press-tint-on-dark: rgba(255, 255, 255, 0.2);
+  --ease-out:           cubic-bezier(0.2, 0, 0, 1);
 
   /* Typography */
   --font-sans:   'Inter', system-ui, -apple-system, sans-serif;
@@ -54,12 +97,12 @@
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-xl:  0 16px 48px rgba(0, 0, 0, 0.7);
-  --shadow-accent: 0 0 20px rgba(99, 102, 241, 0.25);
+  /* Shadows (soft, ink-tinted) */
+  --shadow-sm:  0 1px 2px rgba(14, 42, 56, 0.06);
+  --shadow-md:  0 4px 12px rgba(14, 42, 56, 0.08);
+  --shadow-lg:  0 8px 32px rgba(14, 42, 56, 0.12);
+  --shadow-xl:  0 16px 48px rgba(14, 42, 56, 0.16);
+  --shadow-accent: 0 0 0 3px rgba(8, 98, 136, 0.18);
 
   /* Transitions */
   --transition-fast:   150ms ease;
@@ -88,7 +131,7 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-bg-base);
+  background-color: var(--color-bg-page);
   color: var(--color-text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -101,7 +144,7 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-base);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-strong);
@@ -113,8 +156,8 @@ body {
 
 /* ─── Selection ────────────────────────────────────────────── */
 ::selection {
-  background: var(--color-accent-muted);
-  color: var(--color-text-primary);
+  background: var(--brand-sky);
+  color: var(--brand-ink);
 }
 
 /* ─── Focus ────────────────────────────────────────────────── */
@@ -122,6 +165,19 @@ body {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+/* ─── Auth inputs (login/register) ─────────────────────────── */
+.auth-input {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.auth-input::placeholder {
+  color: var(--color-text-muted);
+}
+.auth-input:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+  box-shadow: var(--shadow-accent);
 }
 
 /* ─── Links ────────────────────────────────────────────────── */
@@ -188,41 +244,68 @@ h6 { font-size: 0.75rem; font-weight: 600; line-height: 1.5; }
 .animate-spin    { animation: spin 1s linear infinite; }
 .animate-pulse   { animation: pulse 2s ease infinite; }
 
-/* ─── Sidebar Hover Effects ────────────────────────────────── */
+/* ─── Sidebar Navigation (deep blue) ───────────────────────── */
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  font-weight: 400;
-  color: var(--color-text-secondary);
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  box-sizing: border-box;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-sidebar-text);
   background-color: transparent;
-  border: 1px solid transparent;
-  transition: all var(--transition-fast);
+  text-decoration: none;
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 100ms var(--ease-out);
 }
 
+/* ChatGPT / Claude style: a soft rounded highlight fades in under the item */
 .sidebar-nav-item:hover {
-  background-color: var(--color-bg-hover);
-  color: var(--color-text-primary);
+  background-color: var(--hover-tint-on-dark);
+  color: var(--color-sidebar-text);
 }
 
-.sidebar-nav-item.active {
+.sidebar-nav-item:active {
+  background-color: var(--press-tint-on-dark);
+  transform: scale(0.985);
+}
+
+.sidebar-nav-item.active,
+.sidebar-nav-item.active:hover {
   font-weight: 600;
-  color: var(--color-text-primary);
-  background-color: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-strong);
+  color: var(--color-sidebar-active-text);
+  background-color: var(--color-sidebar-active-bg);
 }
 
 .sidebar-nav-item .icon-container {
   color: inherit;
   display: flex;
   align-items: center;
+  opacity: 0.82;
+  transition: opacity 150ms var(--ease-out);
 }
 
+.sidebar-nav-item:hover .icon-container,
 .sidebar-nav-item.active .icon-container {
-  color: var(--color-accent);
+  opacity: 1;
+}
+
+/* Small icon buttons on the sidebar (sign out) */
+.sidebar-icon-btn {
+  transition: background-color 150ms var(--ease-out);
+}
+.sidebar-icon-btn:hover {
+  background-color: var(--hover-tint-on-dark);
+}
+.sidebar-icon-btn:active {
+  background-color: var(--press-tint-on-dark);
+}
+
+.sidebar-nav-item:focus-visible {
+  outline: 2px solid var(--brand-cream);
+  outline-offset: 2px;
 }
 
 /* ─── Card Hover Effects ───────────────────────────────────── */
@@ -234,4 +317,95 @@ h6 { font-size: 0.75rem; font-weight: 600; line-height: 1.5; }
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   border-color: var(--color-border-strong);
+}
+
+/* ─── Button Hover / Press ─────────────────────────────────── */
+/* Buttons set their colours inline, so hover uses filter (solid variants)
+   or an inset tint layer (light variants) — both sit on top of inline styles. */
+.btn {
+  transition: filter 150ms var(--ease-out), box-shadow 150ms var(--ease-out), transform 100ms var(--ease-out), opacity 150ms var(--ease-out);
+}
+.btn[data-variant='primary']:not(:disabled):hover,
+.btn[data-variant='danger']:not(:disabled):hover {
+  filter: brightness(0.9);
+}
+.btn[data-variant='secondary']:not(:disabled):hover,
+.btn[data-variant='outline']:not(:disabled):hover,
+.btn[data-variant='ghost']:not(:disabled):hover {
+  box-shadow: inset 0 0 0 999px var(--hover-tint);
+}
+.btn[data-variant='secondary']:not(:disabled):active,
+.btn[data-variant='outline']:not(:disabled):active,
+.btn[data-variant='ghost']:not(:disabled):active {
+  box-shadow: inset 0 0 0 999px var(--press-tint);
+}
+.btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* ─── Hoverable Rows & Items ───────────────────────────────── */
+/* For clickable list rows, tree items and links styled as rows.
+   The inset shadow tints any inline background without replacing it. */
+.hover-row {
+  cursor: pointer;
+  transition: box-shadow 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+.hover-row:hover {
+  box-shadow: inset 0 0 0 999px var(--hover-tint);
+}
+.hover-row:active {
+  box-shadow: inset 0 0 0 999px var(--press-tint);
+}
+
+/* Data tables: highlight the row under the pointer */
+.data-table tbody tr {
+  transition: background-color 120ms var(--ease-out);
+}
+.data-table tbody tr:hover {
+  background-color: var(--color-bg-hover);
+}
+
+/* Header connection pill */
+.header-pill {
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+.header-pill:hover {
+  border-color: var(--brand-deep) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Controls on the deep-blue hero */
+.on-dark-chip {
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+.on-dark-chip:hover {
+  background-color: var(--hover-tint-on-dark) !important;
+  border-color: var(--brand-cream) !important;
+}
+.on-dark-chip:active {
+  background-color: var(--press-tint-on-dark) !important;
+}
+.solid-hover {
+  transition: filter 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+.solid-hover:not(:disabled):hover {
+  filter: brightness(0.95);
+}
+.solid-hover:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* ─── Reduced Motion ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .card.hoverable:hover,
+  .btn:not(:disabled):active,
+  .sidebar-nav-item:active,
+  .solid-hover:active {
+    transform: none;
+  }
 }

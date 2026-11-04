@@ -11,6 +11,10 @@ import { registerSchemaHandlers } from './ipc/schema.ipc';
 import { registerAIHandlers } from './ipc/ai.ipc';
 import { registerHistoryHandlers } from './ipc/history.ipc';
 import { registerExportHandlers } from './ipc/export.ipc';
+import { registerConnectionHandlers } from './ipc/connections.ipc';
+import { registerPolicyHandlers } from './ipc/policy.ipc';
+import { registerAuditHandlers } from './ipc/audit.ipc';
+import { shutdownConnections } from './connections';
 
 // ─── Constants ───────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
@@ -102,6 +106,11 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// Close the active database connection on shutdown
+app.on('will-quit', () => {
+  void shutdownConnections();
+});
+
 // ─── IPC Handlers ─────────────────────────────────────────────
 // All channel names come from IPC_CHANNELS — never use raw strings.
 
@@ -128,7 +137,10 @@ ipcMain.handle('dialog:open-file', async (_, filters: Electron.FileFilter[]) => 
 // ─── Feature IPC Registrations ────────────────────────────────
 registerAuthHandlers();
 registerDatabaseHandlers();
+registerConnectionHandlers();
 registerSchemaHandlers();
+registerPolicyHandlers();
+registerAuditHandlers();
 registerAIHandlers();
 registerHistoryHandlers();
 registerExportHandlers();

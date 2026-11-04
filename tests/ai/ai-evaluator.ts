@@ -1,10 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import dotenv from 'dotenv';
-import { GroqProvider } from '../../src/services/ai/ai.provider';
+import { GroqProvider, DEFAULT_GROQ_MODEL } from '../../src/services/ai/ai.provider';
+import { AIService } from '../../src/services/ai/ai.service';
 import { DatabaseService } from '../../src/services/database/database.service';
 import { SchemaService } from '../../src/services/schema/schema.service';
-import { formatSchemaToDDL } from '../../src/services/ai/schema.formatter';
 
 dotenv.config();
 
@@ -47,8 +47,10 @@ async function runEvaluation() {
     process.exit(1);
   }
 
-  const ddl = formatSchemaToDDL(schemaRes.data);
-  const aiProvider = new GroqProvider(apiKey);
+  // Same pipeline as the app: context builder, answer validation and one repair attempt
+  const model = process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
+  const ai = new AIService(new GroqProvider(apiKey, model), () => schemaService.extractSchema(), [apiKey]);
+  const connection = { connectionId: 'eval', engine: 'sqlite' as const, label: 'chinook.db' };
   
   // 2. Load Questions
   const questions: TestQuestion[] = JSON.parse(fs.readFileSync(TEST_FILE, 'utf-8'));
@@ -57,7 +59,7 @@ async function runEvaluation() {
   const results: string[] = [];
   results.push('# AI Evaluation Results\n');
   results.push(`**Date**: ${new Date().toISOString()}\n`);
-  results.push(`**Model**: llama-3.1-8b-instant (Groq)\n\n`);
+  results.push(`**Model**: ${model} (Groq)\n\n`);
   
   let passed = 0;
 
@@ -66,9 +68,11 @@ async function runEvaluation() {
     console.log(`Evaluating [${q.id}/${questions.length}] ${q.category}: "${q.question}"`);
     
     try {
-      const response = await aiProvider.generateSQL([{ role: 'user', content: q.question }], ddl);
-      
-      const actualType = response.isAmbiguous ? 'ambiguous' : 'query';
+      const res = await ai.generateSQL([{ role: 'user', content: q.question }], connection);
+      if (!res.success) throw new Error(res.error.message);
+      const response = res.data;
+
+      const actualType = response.meta.mode === 'sql' && response.sql ? 'query' : 'ambiguous';
       const isPass = actualType === q.expectedType;
       
       if (isPass) passed++;

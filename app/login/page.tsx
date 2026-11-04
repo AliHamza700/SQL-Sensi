@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/src/components/ui/Button';
-import { Lock, Mail, ArrowRight, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Database, Lock, Mail, ArrowRight, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validatePasswordStrength, isValidEmail } from '@/src/services/auth/auth.schema';
 import { useAuthContext } from '@/src/contexts';
 import { GuestGuard } from '@/src/components/security/GuestGuard';
@@ -84,7 +84,7 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.14) 0%, var(--color-bg-base) 70%)',
+        backgroundColor: 'var(--color-bg-page)',
         padding: '1.5rem',
       }}
     >
@@ -93,35 +93,43 @@ export default function LoginPage() {
           background: 'var(--color-bg-surface)',
           border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius-xl)',
-          padding: '2.5rem',
+          padding: '2.75rem 2.5rem',
           width: '100%',
           maxWidth: '440px',
-          boxShadow: 'var(--shadow-xl)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '54px',
-              height: '54px',
-              background: 'var(--color-accent-muted)',
-              border: '1px solid var(--color-accent)',
+              width: '64px',
+              height: '64px',
+              background: 'var(--brand-deep)',
+              color: 'var(--brand-cream)',
               borderRadius: 'var(--radius-lg)',
-              marginBottom: '0.75rem',
-              fontSize: '1.75rem',
+              marginBottom: '1rem',
+            }}
+            aria-hidden="true"
+          >
+            <Database size={32} strokeWidth={2.2} />
+          </div>
+          <h1
+            style={{
+              fontSize: 'clamp(1.5rem, 6vw, 2rem)',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.05,
+              color: 'var(--color-text-primary)',
             }}
           >
-            🗄️
-          </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
             SQL Sensi
           </h1>
-          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem', fontSize: '0.85rem' }}>
-            AI-Powered Natural Language Database Assistant
+          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem', lineHeight: 1.5 }}>
+            Ask your database in plain English. Read-only, and your data never leaves this machine.
           </p>
         </div>
 
@@ -149,10 +157,10 @@ export default function LoginPage() {
               fontSize: '0.825rem',
               fontWeight: 600,
               borderRadius: 'var(--radius-sm)',
-              border: 'none',
               cursor: 'pointer',
-              backgroundColor: activeTab === 'login' ? 'var(--color-bg-elevated)' : 'transparent',
-              color: activeTab === 'login' ? 'var(--color-accent-light)' : 'var(--color-text-secondary)',
+              backgroundColor: activeTab === 'login' ? 'var(--color-bg-surface)' : 'transparent',
+              color: activeTab === 'login' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+              border: activeTab === 'login' ? '1px solid var(--color-border)' : '1px solid transparent',
               transition: 'all 0.2s ease',
             }}
           >
@@ -171,10 +179,10 @@ export default function LoginPage() {
               fontSize: '0.825rem',
               fontWeight: 600,
               borderRadius: 'var(--radius-sm)',
-              border: 'none',
               cursor: 'pointer',
-              backgroundColor: activeTab === 'register' ? 'var(--color-bg-elevated)' : 'transparent',
-              color: activeTab === 'register' ? 'var(--color-accent-light)' : 'var(--color-text-secondary)',
+              backgroundColor: activeTab === 'register' ? 'var(--color-bg-surface)' : 'transparent',
+              color: activeTab === 'register' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+              border: activeTab === 'register' ? '1px solid var(--color-border)' : '1px solid transparent',
               transition: 'all 0.2s ease',
             }}
           >
@@ -186,13 +194,13 @@ export default function LoginPage() {
         {errorMsg && (
           <div
             style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              backgroundColor: 'var(--color-danger-muted)',
+              border: '1px solid transparent',
               borderRadius: 'var(--radius-md)',
               padding: '0.65rem 0.75rem',
               marginBottom: '1rem',
               fontSize: '0.8rem',
-              color: '#f87171',
+              color: 'var(--color-danger)',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
@@ -206,13 +214,13 @@ export default function LoginPage() {
         {successMsg && (
           <div
             style={{
-              backgroundColor: 'rgba(34, 197, 94, 0.1)',
-              border: '1px solid rgba(34, 197, 94, 0.3)',
+              backgroundColor: 'var(--color-success-muted)',
+              border: '1px solid transparent',
               borderRadius: 'var(--radius-md)',
               padding: '0.65rem 0.75rem',
               marginBottom: '1rem',
               fontSize: '0.8rem',
-              color: '#4ade80',
+              color: 'var(--color-success)',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
@@ -242,6 +250,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 placeholder="analyst@sqlsensi.local"
+                className="auth-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{
@@ -275,6 +284,7 @@ export default function LoginPage() {
                 type="password"
                 required
                 placeholder="••••••••"
+                className="auth-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{
@@ -314,6 +324,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   placeholder="••••••••"
+                  className="auth-input"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={{
@@ -338,7 +349,7 @@ export default function LoginPage() {
               size="lg"
               isLoading={loading}
               icon={activeTab === 'login' ? <ArrowRight size={16} /> : <UserPlus size={16} />}
-              style={{ width: '100%' }}
+              style={{ width: '100%', boxShadow: 'none' }}
             >
               {activeTab === 'login' ? 'Sign In to SQL Sensi' : 'Create Account'}
             </Button>

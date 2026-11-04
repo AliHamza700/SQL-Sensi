@@ -24,27 +24,27 @@ export const Badge: React.FC<BadgeProps> = ({
     success: {
       bg: 'var(--color-success-muted)',
       text: 'var(--color-success)',
-      border: 'rgba(34, 197, 94, 0.3)',
+      border: 'transparent',
     },
     warning: {
       bg: 'var(--color-warning-muted)',
       text: 'var(--color-warning)',
-      border: 'rgba(245, 158, 11, 0.3)',
+      border: 'transparent',
     },
     danger: {
       bg: 'var(--color-danger-muted)',
       text: 'var(--color-danger)',
-      border: 'rgba(239, 68, 68, 0.3)',
+      border: 'transparent',
     },
     info: {
       bg: 'var(--color-info-muted)',
       text: 'var(--color-info)',
-      border: 'rgba(56, 189, 248, 0.3)',
+      border: 'var(--brand-sky)',
     },
     accent: {
-      bg: 'var(--color-accent-muted)',
-      text: 'var(--color-accent)',
-      border: 'rgba(99, 102, 241, 0.3)',
+      bg: 'var(--color-accent)',
+      text: 'var(--color-on-accent)',
+      border: 'transparent',
     },
     outline: {
       bg: 'transparent',

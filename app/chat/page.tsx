@@ -3,14 +3,82 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { AppLayout } from '@/src/components/layout/AppLayout';
 import { Card } from '@/src/components/ui/Card';
-import { ChatMessage, Conversation, ConversationMessage } from '@/src/types';
-import { Send, Bot, User, Database, Zap, Search, MessageSquare, Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { AiAnswerMeta, ChatMessage, Conversation, ConversationMessage, DatabaseEngine } from '@/src/types';
+import { Send, Bot, User, Database, Zap, Search, MessageSquare, Plus, Trash2, Edit2, Check, AlertTriangle, BookOpen, HelpCircle } from 'lucide-react';
 import { useDatabaseContext } from '@/src/contexts/DatabaseContext';
+import { readSession } from '@/src/utils/session-storage';
+
+const ENGINE_SHORT: Record<DatabaseEngine, string> = { sqlite: 'SQLite', mysql: 'MySQL', postgresql: 'PostgreSQL' };
+
+/** Current session token for per-user history calls; empty when signed out. */
+const authToken = (): string => readSession()?.token ?? '';
+
+/** Message text with ```sql blocks shown as dark code panels (the rest stays plain text) */
+function MessageText({ content }: { content: string }) {
+  const parts = content.split(/```sql\n([\s\S]*?)\n```/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <pre
+            key={i}
+            style={{ margin: '0.5rem 0', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: 'var(--color-code-bg)', color: 'var(--color-code-text)', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowX: 'auto' }}
+          >
+            <code>{part}</code>
+          </pre>
+        ) : (
+          part.trim() && <div key={i} style={{ whiteSpace: 'pre-wrap' }}>{part.trim()}</div>
+        )
+      )}
+    </>
+  );
+}
+
+/** Badge, tables, assumptions and warnings for a structured assistant answer */
+function AnswerMeta({ meta }: { meta: AiAnswerMeta }) {
+  const badge =
+    meta.mode === 'general'
+      ? { icon: <BookOpen size={12} aria-hidden="true" />, text: 'General SQL knowledge', bg: 'var(--brand-cream)', fg: 'var(--color-warning)' }
+      : meta.mode === 'clarify'
+        ? { icon: <HelpCircle size={12} aria-hidden="true" />, text: 'Needs more detail', bg: 'var(--color-bg-base)', fg: 'var(--color-text-secondary)' }
+        : { icon: <Database size={12} aria-hidden="true" />, text: `Based on your schema · ${ENGINE_SHORT[meta.engine]}`, bg: 'var(--color-bg-overlay)', fg: 'var(--brand-deep)' };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.625rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', background: badge.bg, color: badge.fg, fontSize: '0.72rem', fontWeight: 700 }}>
+          {badge.icon} {badge.text}
+        </span>
+        {meta.tablesUsed.length > 0 && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+            Tables: {meta.tablesUsed.map(t => <code key={t} style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)', marginRight: '0.35rem' }}>{t}</code>)}
+          </span>
+        )}
+      </div>
+      {meta.assumptions.length > 0 && (
+        <div style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-page)', border: '1px solid var(--brand-cream)', fontSize: '0.8rem' }}>
+          <strong>Assumptions:</strong> {meta.assumptions.join(' · ')}
+        </div>
+      )}
+      {meta.warnings.length > 0 && (
+        <div role="note" style={{ display: 'flex', gap: '0.4rem', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--color-warning-muted)', color: 'var(--color-warning)', fontSize: '0.8rem' }}>
+          <AlertTriangle size={14} style={{ flex: 'none', marginTop: '2px' }} aria-hidden="true" />
+          <span>{meta.warnings.join(' ')}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ChatPage() {
-  const { activeDatabasePath, isLoading: isDbLoading } = useDatabaseContext();
+  const { activeConnection, isLoading: isDbLoading } = useDatabaseContext();
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [input, setInput] = useState('');
+
+  // A question handed over from the Home page (?q=…) prefills the input; it is not sent automatically
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setInput(q.slice(0, 2000));
+  }, []);
   const [isTyping, setIsTyping] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
@@ -19,6 +87,15 @@ export default function ChatPage() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editTitleText, setEditTitleText] = useState('');
+  /** Inline error for Optimize / Explain on a message */
+  const [actionError, setActionError] = useState<{ index: number; text: string } | null>(null);
+
+  // A conversation belongs to one database. If another database is active now,
+  // the conversation is read-only until the user switches back or starts a new chat.
+  const activeConversation = conversations.find(c => c.id === activeConversationId) ?? null;
+  const conversationMismatch = Boolean(
+    activeConversation?.connectionId && activeConnection && activeConversation.connectionId !== activeConnection.connectionId
+  );
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -31,7 +108,7 @@ export default function ChatPage() {
   const loadConversations = async () => {
     const electron = window.electronAPI;
     if (!electron) return;
-    const res = await electron.history.list();
+    const res = await electron.history.list(authToken());
     if (res.success) {
       setConversations(res.data);
     }
@@ -40,7 +117,7 @@ export default function ChatPage() {
   const loadConversation = async (id: string) => {
     const electron = window.electronAPI;
     if (!electron) return;
-    const res = await electron.history.get(id);
+    const res = await electron.history.get(authToken(), id);
     if (res.success) {
       setActiveConversationId(id);
       setMessages(res.data.messages);
@@ -56,7 +133,7 @@ export default function ChatPage() {
     e.stopPropagation();
     const electron = window.electronAPI;
     if (!electron) return;
-    await electron.history.delete(id);
+    await electron.history.delete(authToken(), id);
     if (activeConversationId === id) {
       startNewConversation();
     }
@@ -74,14 +151,16 @@ export default function ChatPage() {
     const electron = window.electronAPI;
     if (!electron) return;
     if (editTitleText.trim()) {
-      await electron.history.update(id, editTitleText.trim());
+      await electron.history.update(authToken(), id, editTitleText.trim());
       await loadConversations();
     }
     setEditingTitleId(null);
   };
 
   const handleSend = async () => {
-    if (!input.trim() || !activeDatabasePath) return;
+    if (!input.trim() || !activeConnection || conversationMismatch) return;
+    // The SQL generated for this question may only run on this connection
+    const connectionId = activeConnection.connectionId;
 
     let currentConversationId = activeConversationId;
     const electron = window.electronAPI!;
@@ -89,7 +168,7 @@ export default function ChatPage() {
     // 1. Create conversation if none exists
     if (!currentConversationId) {
       const title = input.trim().substring(0, 30) + (input.length > 30 ? '...' : '');
-      const createRes = await electron.history.create(title);
+      const createRes = await electron.history.create(authToken(), title, connectionId);
       if (createRes.success) {
         currentConversationId = createRes.data.id;
         setActiveConversationId(currentConversationId);
@@ -101,7 +180,7 @@ export default function ChatPage() {
 
     // 2. Save User Message
     const userMsgData: Partial<ConversationMessage> = { role: 'user', content: input.trim() };
-    const addRes = await electron.history.addMessage(currentConversationId, userMsgData);
+    const addRes = await electron.history.addMessage(authToken(), currentConversationId, userMsgData);
     let userMsg: ConversationMessage;
     if (addRes.success) {
       userMsg = addRes.data;
@@ -117,19 +196,21 @@ export default function ChatPage() {
     try {
       // 3. Get AI Response
       const aiInputMessages: ChatMessage[] = newMessages.map(m => ({ role: m.role, content: m.content }));
-      const res = await electron.ai.generateSQL(aiInputMessages);
-      
-      let aiMsgData: Partial<ConversationMessage> = { role: 'assistant', content: '' };
+      const res = await electron.ai.generateSQL(aiInputMessages, connectionId);
+
+      const aiMsgData: Partial<ConversationMessage> = { role: 'assistant', content: '', connectionId };
 
       if (res.success) {
         const aiMsg = res.data;
-        if (aiMsg.isAmbiguous) {
+        aiMsgData.aiMeta = aiMsg.meta;
+        if (!aiMsg.sql) {
+          // General answer or a clarifying question: nothing to run
           aiMsgData.content = aiMsg.message;
         } else {
           let queryData;
           if (aiMsg.sql) {
             try {
-              const execRes = await electron.database.executeQuery(aiMsg.sql);
+              const execRes = await electron.database.executeQuery(aiMsg.sql, connectionId);
               if (execRes.success) {
                 queryData = execRes.data;
               } else {
@@ -141,7 +222,7 @@ export default function ChatPage() {
             }
           }
 
-          aiMsgData.content = `Here is the query I generated:\n\n\`\`\`sql\n${aiMsg.sql}\n\`\`\``;
+          aiMsgData.content = `${aiMsg.message}\n\n\`\`\`sql\n${aiMsg.sql}\n\`\`\``;
           aiMsgData.queryResult = queryData;
         }
       } else {
@@ -149,7 +230,7 @@ export default function ChatPage() {
       }
 
       // 4. Save AI Message
-      const addAiRes = await electron.history.addMessage(currentConversationId, aiMsgData);
+      const addAiRes = await electron.history.addMessage(authToken(), currentConversationId, aiMsgData);
       if (addAiRes.success) {
         setMessages(prev => [...prev, addAiRes.data]);
       } else {
@@ -158,7 +239,7 @@ export default function ChatPage() {
 
     } catch (err: unknown) {
       const errorMsgData: Partial<ConversationMessage> = { role: 'assistant', content: `**Error:** Failed to connect to AI provider.` };
-      const addErrRes = await electron.history.addMessage(currentConversationId, errorMsgData);
+      const addErrRes = await electron.history.addMessage(authToken(), currentConversationId, errorMsgData);
       if (addErrRes.success) {
         setMessages(prev => [...prev, addErrRes.data]);
       }
@@ -177,12 +258,12 @@ export default function ChatPage() {
     newMessages[index] = { ...msg, isOptimizing: true };
     setMessages(newMessages);
 
+    setActionError(null);
     try {
-      const res = await window.electronAPI!.ai.optimizeSQL(sql);
+      // The message's own connection: main refuses if another database is active now
+      const res = await window.electronAPI!.ai.optimizeSQL(sql, msg.connectionId ?? activeConnection?.connectionId ?? '');
       if (res.success) {
-        // Need to update backend - but our history service doesn't have an updateMessage yet.
-        // For simplicity in Phase 12, we can just update local state if we don't have updateMessage.
-        // Or we could implement updateMessage. Let's just update local state for the prototype.
+        // Optimization results are kept in page state only (history has no message update yet)
         const msgs = [...messages];
         msgs[index] = { ...msg, isOptimizing: false, optimizationResult: res.data };
         setMessages(msgs);
@@ -190,6 +271,7 @@ export default function ChatPage() {
         const msgs = [...messages];
         msgs[index] = { ...msg, isOptimizing: false };
         setMessages(msgs);
+        setActionError({ index, text: res.error.message });
       }
     } catch (e) {
       const msgs = [...messages];
@@ -206,10 +288,16 @@ export default function ChatPage() {
     newMessages[index] = { ...msg, isExplaining: true };
     setMessages(newMessages);
 
+    setActionError(null);
     try {
-      const planRes = await window.electronAPI!.database.explainQuery(sql);
+      // The message's own connection (stored in history since V2). Only pre-V2 messages,
+      // which have none, fall back to the connection that is active now.
+      const connectionId = msg.connectionId ?? activeConnection?.connectionId ?? '';
+      const planRes = await window.electronAPI!.database.explainQuery(sql, connectionId);
+      if (!planRes.success) setActionError({ index, text: planRes.error.message });
       if (planRes.success) {
-        const aiRes = await window.electronAPI!.ai.explainQueryPlan(sql, planRes.data);
+        const aiRes = await window.electronAPI!.ai.explainQueryPlan(sql, planRes.data, connectionId);
+        if (!aiRes.success) setActionError({ index, text: aiRes.error.message });
         const msgs = [...messages];
         if (aiRes.success) {
           msgs[index] = {
@@ -238,7 +326,7 @@ export default function ChatPage() {
     }
   };
 
-  if (!activeDatabasePath && !isDbLoading) {
+  if (!activeConnection && !isDbLoading) {
     return (
       <AppLayout title="SQL Sensi Chat">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '1rem', color: 'var(--color-text-secondary)' }}>
@@ -258,7 +346,8 @@ export default function ChatPage() {
         <div style={{ width: '260px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <button
             onClick={startNewConversation}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', background: 'var(--color-accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500, justifyContent: 'center' }}
+            className="solid-hover"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem', background: 'var(--color-accent)', color: 'var(--color-on-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500, justifyContent: 'center' }}
           >
             <Plus size={16} /> New Chat
           </button>
@@ -274,7 +363,7 @@ export default function ChatPage() {
                 className={`conv-item ${activeConversationId === conv.id ? 'active' : ''}`}
                 onDoubleClick={(e) => startEditingTitle(e, conv)}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }} title={`${conv.databaseName}${conv.engine ? ` (${ENGINE_SHORT[conv.engine]})` : ''}`}>
                   <MessageSquare size={14} color="var(--color-text-secondary)" style={{ flexShrink: 0 }} />
                   {editingTitleId === conv.id ? (
                     <input 
@@ -290,19 +379,25 @@ export default function ChatPage() {
                       style={{ background: 'var(--color-bg-base)', color: 'var(--color-text-primary)', border: '1px solid var(--color-accent)', borderRadius: '2px', padding: '0.1rem 0.2rem', fontSize: '0.85rem', width: '120px', outline: 'none' }}
                     />
                   ) : (
-                    <span style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: activeConversationId === conv.id ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                      {conv.title}
+                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: activeConversationId === conv.id ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                        {conv.title}
+                      </span>
+                      {/* Which database this conversation is about */}
+                      <span style={{ fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        {conv.engine ? `${ENGINE_SHORT[conv.engine]} · ` : ''}{conv.databaseName}
+                      </span>
                     </span>
                   )}
                 </div>
                 
                 <div className="conv-actions">
                   {editingTitleId === conv.id ? (
-                    <button onClick={(e) => saveEditedTitle(e, conv.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}><Check size={12} color="var(--color-success)" /></button>
+                    <button onClick={(e) => saveEditedTitle(e, conv.id)} className="hover-row" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'inline-flex' }}><Check size={12} color="var(--color-success)" /></button>
                   ) : (
-                    <button onClick={(e) => startEditingTitle(e, conv)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }} title="Rename"><Edit2 size={12} color="var(--color-text-muted)" /></button>
+                    <button onClick={(e) => startEditingTitle(e, conv)} className="hover-row" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'inline-flex' }} title="Rename"><Edit2 size={12} color="var(--color-text-muted)" /></button>
                   )}
-                  <button onClick={(e) => deleteConversation(e, conv.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }} title="Delete"><Trash2 size={12} color="var(--color-text-muted)" /></button>
+                  <button onClick={(e) => deleteConversation(e, conv.id)} className="hover-row" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'inline-flex' }} title="Delete"><Trash2 size={12} color="var(--color-text-muted)" /></button>
                 </div>
               </div>
             ))}
@@ -317,7 +412,9 @@ export default function ChatPage() {
               <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                 <Bot size={48} opacity={0.3} style={{ margin: '0 auto 1rem auto' }} />
                 <h3>SQL Sensi is ready.</h3>
-                <p style={{ fontSize: '0.85rem' }}>Try asking: &quot;Show me the top 10 customers by invoice total&quot;</p>
+                <p style={{ fontSize: '0.85rem' }}>
+                  Ask about <strong>{activeConnection?.label}</strong>, e.g. &quot;Which tables are in this database?&quot;, or any general SQL question.
+                </p>
               </div>
             )}
 
@@ -328,11 +425,11 @@ export default function ChatPage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   border: m.role === 'assistant' ? '1px solid var(--color-border)' : 'none'
                 }}>
-                  {m.role === 'user' ? <User size={16} color="#fff" /> : <Bot size={16} color="var(--color-accent)" />}
+                  {m.role === 'user' ? <User size={16} style={{ color: "var(--color-on-accent)" }} /> : <Bot size={16} color="var(--color-accent)" />}
                 </div>
                 <div style={{ 
                   background: m.role === 'user' ? 'var(--color-accent)' : 'var(--color-bg-elevated)',
-                  color: m.role === 'user' ? '#fff' : 'var(--color-text-primary)',
+                  color: m.role === 'user' ? 'var(--color-on-accent)' : 'var(--color-text-primary)',
                   padding: '0.75rem 1rem',
                   borderRadius: 'var(--radius-md)',
                   maxWidth: '75%',
@@ -341,16 +438,22 @@ export default function ChatPage() {
                   border: m.role === 'assistant' ? '1px solid var(--color-border)' : 'none',
                   overflow: 'hidden'
                 }}>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                  {m.role === 'assistant' && m.aiMeta && <AnswerMeta meta={m.aiMeta} />}
+                  <MessageText content={m.content} />
+                  {actionError?.index === i && (
+                    <div role="alert" style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', background: 'var(--color-danger-muted)', color: 'var(--color-danger)', fontSize: '0.8rem' }}>
+                      {actionError.text}
+                    </div>
+                  )}
                   
                   {m.queryResult && (
                     <div style={{ marginTop: '1rem', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden', color: 'var(--color-text-primary)' }}>
                       <div style={{ padding: '0.5rem 1rem', background: 'var(--color-bg-elevated)', borderBottom: '1px solid var(--color-border)', fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
                         <span>Query Results ({m.queryResult.rowCount} rows)</span>
-                        <span>{m.queryResult.executionTimeMs}ms</span>
+                        <span>{m.queryResult.executionTimeMs.toFixed(2)} ms</span>
                       </div>
                       <div style={{ overflowX: 'auto', maxHeight: '300px', overflowY: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                           <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-elevated)' }}>
                             <tr>
                               {m.queryResult.columns.map((col, idx) => (
@@ -416,7 +519,7 @@ export default function ChatPage() {
                             fontSize: '0.8rem'
                           }}
                         >
-                          <Search size={14} color="#3b82f6" /> 
+                          <Search size={14} style={{ color: "var(--brand-deep)" }} /> 
                           {m.isExplaining ? 'Explaining...' : 'Explain Query'}
                         </button>
                       )}
@@ -425,9 +528,9 @@ export default function ChatPage() {
 
                   {/* Explanation Results */}
                   {m.queryPlan && (
-                    <div style={{ marginTop: '1rem', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f6', overflow: 'hidden', color: 'var(--color-text-primary)' }}>
-                      <div style={{ padding: '0.5rem 1rem', background: 'var(--color-bg-elevated)', borderBottom: '1px solid #3b82f6', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                        <Search size={14} color="#3b82f6" /> Query Execution Plan
+                    <div style={{ marginTop: '1rem', background: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--brand-sky)', overflow: 'hidden', color: 'var(--color-text-primary)' }}>
+                      <div style={{ padding: '0.5rem 1rem', background: 'var(--color-bg-elevated)', borderBottom: '1px solid var(--brand-sky)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                        <Search size={14} style={{ color: "var(--brand-deep)" }} /> Query Execution Plan
                       </div>
                       <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
                         <div style={{ lineHeight: 1.5 }}>
@@ -436,7 +539,7 @@ export default function ChatPage() {
                         
                         {m.queryPlan.performanceIssues && m.queryPlan.performanceIssues.length > 0 && (
                           <div style={{ marginTop: '0.5rem' }}>
-                            <strong style={{ color: '#ef4444' }}>Performance Bottlenecks:</strong>
+                            <strong style={{ color: 'var(--color-danger)' }}>Performance Bottlenecks:</strong>
                             <ul style={{ margin: '0.25rem 0 0 1.25rem', color: 'var(--color-text-secondary)' }}>
                               {m.queryPlan.performanceIssues.map((issue: string, idx: number) => <li key={idx}>{issue}</li>)}
                             </ul>
@@ -445,7 +548,7 @@ export default function ChatPage() {
                         
                         {m.queryPlan.suggestions && m.queryPlan.suggestions.length > 0 && (
                           <div style={{ marginTop: '0.5rem' }}>
-                            <strong style={{ color: '#10b981' }}>Suggestions:</strong>
+                            <strong style={{ color: 'var(--color-success)' }}>Suggestions:</strong>
                             <ul style={{ margin: '0.25rem 0 0 1.25rem', color: 'var(--color-text-secondary)' }}>
                               {m.queryPlan.suggestions.map((sug: string, idx: number) => <li key={idx}>{sug}</li>)}
                             </ul>
@@ -471,7 +574,7 @@ export default function ChatPage() {
                       <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
                         {m.optimizationResult.issues.length > 0 && (
                           <div>
-                            <strong style={{ color: '#ef4444' }}>Issues Detected:</strong>
+                            <strong style={{ color: 'var(--color-danger)' }}>Issues Detected:</strong>
                             <ul style={{ margin: '0.25rem 0 0 1.25rem', color: 'var(--color-text-secondary)' }}>
                               {m.optimizationResult.issues.map((issue, idx) => <li key={idx}>{issue}</li>)}
                             </ul>
@@ -479,7 +582,7 @@ export default function ChatPage() {
                         )}
                         {m.optimizationResult.suggestions.length > 0 && (
                           <div>
-                            <strong style={{ color: '#10b981' }}>Suggestions:</strong>
+                            <strong style={{ color: 'var(--color-success)' }}>Suggestions:</strong>
                             <ul style={{ margin: '0.25rem 0 0 1.25rem', color: 'var(--color-text-secondary)' }}>
                               {m.optimizationResult.suggestions.map((sug, idx) => <li key={idx}>{sug}</li>)}
                             </ul>
@@ -487,8 +590,8 @@ export default function ChatPage() {
                         )}
                         <div>
                           <strong>Optimized SQL:</strong>
-                          <pre style={{ background: 'var(--color-bg-elevated)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginTop: '0.25rem', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
-                            <code style={{ color: 'var(--color-accent)' }}>{m.optimizationResult.optimizedSql}</code>
+                          <pre style={{ background: 'var(--color-code-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: 'none', marginTop: '0.25rem', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                            <code style={{ color: 'var(--color-code-text)' }}>{m.optimizationResult.optimizedSql}</code>
                           </pre>
                         </div>
                       </div>
@@ -516,10 +619,24 @@ export default function ChatPage() {
 
           {/* Input Area */}
           <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-base)' }}>
+            {conversationMismatch && activeConversation && (
+              <div role="status" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem', padding: '0.625rem 0.875rem', borderRadius: 'var(--radius-md)', background: 'var(--brand-cream)', fontSize: '0.85rem' }}>
+                <span>
+                  This conversation is about <strong>{activeConversation.databaseName}</strong>, but <strong>{activeConnection?.label}</strong> is connected now.
+                  Switch back on the Connections page to continue it, or start a new chat.
+                </span>
+                <button type="button" onClick={startNewConversation} className="solid-hover" style={{ border: 'none', borderRadius: 'var(--radius-md)', padding: '0.4rem 0.875rem', background: 'var(--brand-deep)', color: 'var(--color-on-accent)', fontWeight: 600, cursor: 'pointer' }}>
+                  New chat
+                </button>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input 
+              <label htmlFor="chat-input" className="visually-hidden">Your question</label>
+              <input
+                id="chat-input"
                 type="text"
-                placeholder="Ask SQL Sensi to write a query..."
+                placeholder={conversationMismatch ? 'This conversation is about another database' : `Ask about ${activeConnection?.label ?? 'your database'} or SQL in general…`}
+                disabled={conversationMismatch}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSend()}
@@ -531,9 +648,11 @@ export default function ChatPage() {
               />
               <button 
                 onClick={handleSend}
-                disabled={!input.trim() || isTyping}
+                className="solid-hover"
+                aria-label="Send"
+                disabled={!input.trim() || isTyping || conversationMismatch}
                 style={{
-                  background: 'var(--color-accent)', color: '#fff', border: 'none', 
+                  background: 'var(--color-accent)', color: 'var(--color-on-accent)', border: 'none', 
                   padding: '0 1.25rem', borderRadius: 'var(--radius-md)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   opacity: !input.trim() || isTyping ? 0.5 : 1
@@ -558,19 +677,22 @@ export default function ChatPage() {
           color: var(--color-text-secondary);
         }
         .conv-item {
-          display: flex; align-items: center; justify-content: space-between; padding: 0.75rem;
-          border-radius: var(--radius-sm); cursor: pointer; border: 1px solid transparent;
-          transition: background 0.2s;
+          display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 0.75rem;
+          border-radius: 10px; cursor: pointer; border: 1px solid transparent;
+          transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out);
         }
         .conv-item:hover {
-          background: var(--color-bg-elevated);
+          background: var(--hover-tint);
+        }
+        .conv-item:active {
+          background: var(--press-tint);
         }
         .conv-item.active {
-          background: var(--color-bg-elevated);
-          border-color: var(--color-border);
+          background: var(--color-bg-overlay);
+          border-color: var(--brand-sky);
         }
         .conv-actions {
-          display: flex; gap: 0.25rem; opacity: 0; transition: opacity 0.2s;
+          display: flex; gap: 0.25rem; opacity: 0; transition: opacity 150ms var(--ease-out);
         }
         .conv-item:hover .conv-actions, .conv-item.active .conv-actions {
           opacity: 1;

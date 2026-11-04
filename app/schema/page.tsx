@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 
 export default function SchemaPage() {
-  const { activeDatabasePath, isLoading: isDbLoading } = useDatabaseContext();
+  const { activeConnection, isLoading: isDbLoading } = useDatabaseContext();
+  const connectionId = activeConnection?.connectionId ?? null;
   const [schema, setSchema] = useState<DatabaseSchema | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +46,23 @@ export default function SchemaPage() {
   useEffect(() => {
     if (isDbLoading) return;
     
-    if (!activeDatabasePath) {
-      setSchema(null);
+    // A new connection means a new schema: drop the old one and its selection first
+    setSchema(null);
+    setSelectedType(null);
+    setSelectedName(null);
+    if (!connectionId) {
       return;
     }
+
+    // Ignore a response that arrives after the user switched connections
+    let cancelled = false;
 
     const loadSchema = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await window.electronAPI!.schema.extract();
+        const res = await window.electronAPI!.schema.extract(connectionId);
+        if (cancelled) return;
         if (res.success) {
           setSchema(res.data);
           // Auto-select first table if available
@@ -69,12 +77,15 @@ export default function SchemaPage() {
       } catch (err: any) {
         setError(err.message || 'Failed to load schema');
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadSchema();
-  }, [activeDatabasePath, isDbLoading]);
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId, isDbLoading]);
 
   // Derived filtered data
   const filteredTables = useMemo(() => {
@@ -97,7 +108,7 @@ export default function SchemaPage() {
     setSelectedName(name);
   };
 
-  if (!activeDatabasePath && !isDbLoading) {
+  if (!activeConnection && !isDbLoading) {
     return (
       <AppLayout title="Schema Explorer">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '1rem', color: 'var(--color-text-secondary)' }}>
@@ -120,7 +131,7 @@ export default function SchemaPage() {
         </div>
 
         {error && (
-          <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--color-danger)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ padding: '1rem', backgroundColor: 'var(--color-danger-muted)', color: 'var(--color-danger)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <AlertCircle size={18} />
             {error}
           </div>
@@ -157,8 +168,8 @@ export default function SchemaPage() {
                 
                 {/* TABLES FOLDER */}
                 <div>
-                  <button onClick={() => toggleFolder('tables')} style={folderBtnStyle}>
-                    {expanded.tables ? <FolderOpen size={14} color="#60A5FA" /> : <FolderClosed size={14} color="#60A5FA" />}
+                  <button onClick={() => toggleFolder('tables')} className="hover-row" style={folderBtnStyle}>
+                    {expanded.tables ? <FolderOpen size={14} color="#086288" /> : <FolderClosed size={14} color="#086288" />}
                     <span style={{ fontWeight: 600 }}>Tables ({filteredTables.length})</span>
                   </button>
                   {expanded.tables && (
@@ -178,8 +189,8 @@ export default function SchemaPage() {
 
                 {/* VIEWS FOLDER */}
                 <div style={{ marginTop: '0.5rem' }}>
-                  <button onClick={() => toggleFolder('views')} style={folderBtnStyle}>
-                    {expanded.views ? <FolderOpen size={14} color="#A78BFA" /> : <FolderClosed size={14} color="#A78BFA" />}
+                  <button onClick={() => toggleFolder('views')} className="hover-row" style={folderBtnStyle}>
+                    {expanded.views ? <FolderOpen size={14} color="#6250d6" /> : <FolderClosed size={14} color="#6250d6" />}
                     <span style={{ fontWeight: 600 }}>Views ({filteredViews.length})</span>
                   </button>
                   {expanded.views && (
@@ -199,8 +210,8 @@ export default function SchemaPage() {
 
                 {/* INDEXES FOLDER */}
                 <div style={{ marginTop: '0.5rem' }}>
-                  <button onClick={() => toggleFolder('indexes')} style={folderBtnStyle}>
-                    {expanded.indexes ? <FolderOpen size={14} color="#34D399" /> : <FolderClosed size={14} color="#34D399" />}
+                  <button onClick={() => toggleFolder('indexes')} className="hover-row" style={folderBtnStyle}>
+                    {expanded.indexes ? <FolderOpen size={14} color="#1A6E3F" /> : <FolderClosed size={14} color="#1A6E3F" />}
                     <span style={{ fontWeight: 600 }}>Indexes ({filteredIndexes.length})</span>
                   </button>
                   {expanded.indexes && (
@@ -262,7 +273,9 @@ const folderBtnStyle: React.CSSProperties = {
   color: 'var(--color-text-primary)',
   fontSize: '0.8rem',
   cursor: 'pointer',
-  padding: '0.25rem 0',
+  padding: '0.375rem 0.5rem',
+  borderRadius: 'var(--radius-sm)',
+  fontFamily: 'inherit',
   width: '100%',
   textAlign: 'left'
 };
@@ -271,6 +284,8 @@ function NavItem({ icon, label, isSelected, onClick }: { icon: React.ReactNode; 
   return (
     <button
       onClick={onClick}
+      className="hover-row"
+      aria-current={isSelected ? 'true' : undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -327,16 +342,16 @@ function TableDetailView({ table, schema }: { table: TableSchema; schema: Databa
                       {col.name}
                     </td>
                     <td style={{ padding: '0.75rem', fontFamily: 'var(--font-mono)' }}>
-                      <span style={{ color: '#F472B6' }}>{col.type || 'UNKNOWN'}</span>
+                      <span style={{ color: 'var(--brand-deep)', fontWeight: 600 }}>{col.type || 'UNKNOWN'}</span>
                     </td>
                     <td style={{ padding: '0.75rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                       {col.isPrimaryKey && (
-                        <Badge variant="warning" size="sm" style={{ background: 'rgba(251, 191, 36, 0.15)', color: '#FCD34D' }}>
+                        <Badge variant="warning" size="sm">
                           <Key size={10} style={{ marginRight: '4px' }} /> PK
                         </Badge>
                       )}
                       {fk && (
-                        <Badge variant="info" size="sm" style={{ background: 'rgba(96, 165, 250, 0.15)', color: '#93C5FD' }}>
+                        <Badge variant="info" size="sm">
                           <LinkIcon size={10} style={{ marginRight: '4px' }} /> FK
                         </Badge>
                       )}
@@ -350,7 +365,7 @@ function TableDetailView({ table, schema }: { table: TableSchema; schema: Databa
                       )}
                     </td>
                     <td style={{ padding: '0.75rem', color: 'var(--color-text-secondary)', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
-                      {fk ? <span style={{ color: '#93C5FD' }}>→ {fk.referencedTable}.{fk.referencedColumn}</span> : '—'}
+                      {fk ? <span style={{ color: 'var(--color-info)' }}>→ {fk.referencedTable}.{fk.referencedColumn}</span> : '—'}
                     </td>
                   </tr>
                 );
@@ -365,7 +380,7 @@ function TableDetailView({ table, schema }: { table: TableSchema; schema: Databa
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {incoming.map((r, i) => (
               <li key={i} style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', padding: '0.5rem', backgroundColor: 'var(--color-bg-elevated)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ color: '#A78BFA' }}>{r.fromTable}.{r.fromColumn}</span> → {r.toTable}.{r.toColumn}
+                <span style={{ color: 'var(--brand-deep)', fontWeight: 600 }}>{r.fromTable}.{r.fromColumn}</span> → {r.toTable}.{r.toColumn}
               </li>
             ))}
           </ul>
@@ -379,7 +394,7 @@ function ViewDetailView({ view }: { view: ViewSchema }) {
   if (!view) return null;
   return (
     <Card title={`View: ${view.name}`}>
-      <div style={{ backgroundColor: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: '#93C5FD', whiteSpace: 'pre-wrap', border: '1px solid var(--color-border)' }}>
+      <div style={{ backgroundColor: 'var(--color-bg-elevated)', padding: '1rem', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--color-info)', whiteSpace: 'pre-wrap', border: '1px solid var(--color-border)' }}>
         {view.sql || '-- No SQL available'}
       </div>
     </Card>

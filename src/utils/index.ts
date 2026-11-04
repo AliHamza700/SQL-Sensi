@@ -77,6 +77,19 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+/**
+ * Parse a duration such as "7d", "12h", "30m", "45s" or "900" (seconds) into seconds.
+ * Returns null for anything else, including zero, so callers can apply a default.
+ */
+export function parseDurationToSeconds(value: string): number | null {
+  const match = /^(\d+)\s*([smhd]?)$/i.exec(value.trim());
+  if (!match) return null;
+  const amount = parseInt(match[1], 10);
+  const unitSeconds: Record<string, number> = { '': 1, s: 1, m: 60, h: 3600, d: 86400 };
+  const seconds = amount * unitSeconds[match[2].toLowerCase()];
+  return seconds > 0 ? seconds : null;
+}
+
 // ─── Array Utilities ──────────────────────────────────────────
 
 /** Remove duplicate values from an array */

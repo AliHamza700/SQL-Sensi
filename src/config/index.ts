@@ -14,13 +14,10 @@ export const AppConfig = {
   },
 
   ai: {
-    /** Active provider — swap without changing business logic */
-    provider: (process.env.AI_PROVIDER ?? 'gemini') as 'gemini' | 'openai' | 'local',
-    geminiApiKey: process.env.GEMINI_API_KEY ?? '',
-    openaiApiKey: process.env.OPENAI_API_KEY ?? '',
-    openaiModel: process.env.OPENAI_MODEL ?? 'gpt-4o',
-    localLlmBaseUrl: process.env.LOCAL_LLM_BASE_URL ?? 'http://localhost:11434',
-    localLlmModel: process.env.LOCAL_LLM_MODEL ?? 'llama3',
+    /** Active provider. Groq is the only implementation (FR-14); the key is read from GROQ_API_KEY in the main process. */
+    provider: 'groq' as const,
+    /** Optional model override; empty uses the provider default */
+    groqModel: process.env.GROQ_MODEL ?? '',
   },
 
   auth: {

@@ -18,6 +18,7 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   className,
   disabled,
+  style,
   ...props
 }) => {
   const baseStyles: React.CSSProperties = {
@@ -43,7 +44,7 @@ export const Button: React.FC<ButtonProps> = ({
   const variantStyles: Record<string, React.CSSProperties> = {
     primary: {
       backgroundColor: 'var(--color-accent)',
-      color: '#ffffff',
+      color: 'var(--color-on-accent)',
       boxShadow: 'var(--shadow-sm)',
     },
     secondary: {
@@ -58,7 +59,7 @@ export const Button: React.FC<ButtonProps> = ({
     },
     danger: {
       backgroundColor: 'var(--color-danger)',
-      color: '#ffffff',
+      color: 'var(--color-on-accent)',
     },
     ghost: {
       backgroundColor: 'transparent',
@@ -72,9 +73,12 @@ export const Button: React.FC<ButtonProps> = ({
         ...baseStyles,
         ...sizeStyles[size],
         ...variantStyles[variant],
+        // Caller styles adjust the button (e.g. width) instead of replacing its look
+        ...style,
       }}
       disabled={disabled || isLoading}
       className={clsx('btn', className)}
+      data-variant={variant}
       {...props}
     >
       {isLoading ? (

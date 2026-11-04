@@ -25,40 +25,40 @@ describe('DatabaseService Security Tests', () => {
     }
   });
 
-  test('Should allow SELECT queries', () => {
-    const result = databaseService.executeQuery('SELECT * FROM users;');
+  test('Should allow SELECT queries', async () => {
+    const result = await databaseService.executeQuery('SELECT * FROM users;');
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.rowCount).toBe(2);
     }
   });
 
-  test('Should block DROP TABLE', () => {
-    const result = databaseService.executeQuery('DROP TABLE users;');
+  test('Should block DROP TABLE', async () => {
+    const result = await databaseService.executeQuery('DROP TABLE users;');
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
     }
   });
 
-  test('Should block DELETE', () => {
-    const result = databaseService.executeQuery("DELETE FROM users WHERE name = 'Alice';");
+  test('Should block DELETE', async () => {
+    const result = await databaseService.executeQuery("DELETE FROM users WHERE name = 'Alice';");
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
     }
   });
 
-  test('Should block UPDATE', () => {
-    const result = databaseService.executeQuery("UPDATE users SET name = 'Eve';");
+  test('Should block UPDATE', async () => {
+    const result = await databaseService.executeQuery("UPDATE users SET name = 'Eve';");
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
     }
   });
 
-  test('Should block INSERT', () => {
-    const result = databaseService.executeQuery("INSERT INTO users (name) VALUES ('Charlie');");
+  test('Should block INSERT', async () => {
+    const result = await databaseService.executeQuery("INSERT INTO users (name) VALUES ('Charlie');");
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.code).toBe('SQL_VALIDATION_ERROR');

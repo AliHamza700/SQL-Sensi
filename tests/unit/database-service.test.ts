@@ -49,7 +49,7 @@ describe('DatabaseService (Phase 3)', () => {
     dbService = DatabaseService.getInstance();
   });
 
-  it('should initialize completely disconnected', () => {
+  it('should initialize completely disconnected', async () => {
     expect(dbService.isConnected()).toBe(false);
     expect(dbService.getActivePath()).toBeNull();
     expect(() => dbService.getConnection()).toThrow('No database connected.');
@@ -118,8 +118,8 @@ describe('DatabaseService (Phase 3)', () => {
       await dbService.connect(validDbPath);
     });
 
-    it('should successfully execute a valid SELECT query', () => {
-      const result = dbService.executeQuery('SELECT * FROM test');
+    it('should successfully execute a valid SELECT query', async () => {
+      const result = await dbService.executeQuery('SELECT * FROM test');
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.columns).toEqual(['id']);
@@ -129,16 +129,16 @@ describe('DatabaseService (Phase 3)', () => {
       }
     });
 
-    it('should block basic mutating queries', () => {
-      const result = dbService.executeQuery('INSERT INTO test (id) VALUES (1)');
+    it('should block basic mutating queries', async () => {
+      const result = await dbService.executeQuery('INSERT INTO test (id) VALUES (1)');
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('SQL_VALIDATION_ERROR');
       }
     });
 
-    it('should handle syntax errors gracefully', () => {
-      const result = dbService.executeQuery('SELECT * FRO test'); // syntax error
+    it('should handle syntax errors gracefully', async () => {
+      const result = await dbService.executeQuery('SELECT * FRO test'); // syntax error
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('SQL_EXECUTION_ERROR');
@@ -146,9 +146,9 @@ describe('DatabaseService (Phase 3)', () => {
       }
     });
 
-    it('should throw an error if no database is connected', () => {
+    it('should throw an error if no database is connected', async () => {
       dbService.disconnect();
-      const result = dbService.executeQuery('SELECT * FROM test');
+      const result = await dbService.executeQuery('SELECT * FROM test');
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('SQL_EXECUTION_ERROR');

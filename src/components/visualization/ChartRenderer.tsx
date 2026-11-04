@@ -29,6 +29,21 @@ ChartJS.register(
   Legend
 );
 
+/**
+ * Categorical series colours in fixed order (validated with the dataviz palette
+ * checker on the white chart surface; mirrors --chart-1…8 in globals.css).
+ * Never cycled: anything past slot 8 becomes neutral "other" grey.
+ */
+const SERIES_COLORS = ['#0a6fa8', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+const OTHER_COLOR = '#B9CFDC';
+const seriesColor = (i: number) => SERIES_COLORS[i] ?? OTHER_COLOR;
+
+/** Mirrors the text and border tokens in globals.css (Chart.js cannot read CSS variables) */
+const AXIS_TEXT = '#4A6272';
+const LEGEND_TEXT = '#0E2A38';
+const GRID_LINE = '#E3EDF3';
+const SURFACE = '#FFFFFF';
+
 interface ChartRendererProps {
   data: QueryResult;
   chartType: ChartType;
@@ -49,22 +64,6 @@ export function ChartRenderer({ data, chartType }: ChartRendererProps) {
     // Use the first non-numeric column as the label (or just row index if none exist)
     const labelColName = labelCols.length > 0 ? labelCols[0].name : null;
     
-    // Default palette
-    const bgColors = [
-      'rgba(99, 102, 241, 0.6)',
-      'rgba(34, 197, 94, 0.6)',
-      'rgba(239, 68, 68, 0.6)',
-      'rgba(234, 179, 8, 0.6)',
-      'rgba(168, 85, 247, 0.6)',
-    ];
-    const borderColors = [
-      'rgb(99, 102, 241)',
-      'rgb(34, 197, 94)',
-      'rgb(239, 68, 68)',
-      'rgb(234, 179, 8)',
-      'rgb(168, 85, 247)',
-    ];
-
     const labels = labelColName 
       ? data.rows.map(row => String(row[labelColName] ?? 'Unknown'))
       : data.rows.map((_, i) => `Row ${i + 1}`);
@@ -83,8 +82,11 @@ export function ChartRenderer({ data, chartType }: ChartRendererProps) {
             x: Number(row[xCol]),
             y: Number(row[yCol])
           })),
-          backgroundColor: bgColors[0],
-          borderColor: borderColors[0],
+          backgroundColor: seriesColor(0),
+          borderColor: SURFACE,
+          borderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
         }]
       };
     }
@@ -97,9 +99,10 @@ export function ChartRenderer({ data, chartType }: ChartRendererProps) {
         datasets: [{
           label: targetCol,
           data: data.rows.map(row => Number(row[targetCol])),
-          backgroundColor: bgColors,
-          borderColor: borderColors,
-          borderWidth: 1,
+          backgroundColor: data.rows.map((_, i) => seriesColor(i)),
+          // 2px surface-coloured gap between slices
+          borderColor: SURFACE,
+          borderWidth: 2,
         }]
       };
     }
@@ -108,9 +111,15 @@ export function ChartRenderer({ data, chartType }: ChartRendererProps) {
     const datasets = numericCols.map((col, idx) => ({
       label: col.name,
       data: data.rows.map(row => Number(row[col.name])),
-      backgroundColor: bgColors[idx % bgColors.length],
-      borderColor: borderColors[idx % borderColors.length],
-      borderWidth: 1,
+      backgroundColor: seriesColor(idx),
+      borderColor: chartType === 'line' ? seriesColor(idx) : SURFACE,
+      borderWidth: chartType === 'line' ? 2 : 0,
+      // Bars: rounded data end only, small gap between neighbours
+      borderRadius: chartType === 'bar' ? { topLeft: 4, topRight: 4 } : undefined,
+      borderSkipped: chartType === 'bar' ? ('start' as const) : undefined,
+      barPercentage: 0.85,
+      pointRadius: chartType === 'line' ? 4 : undefined,
+      pointHoverRadius: chartType === 'line' ? 6 : undefined,
       fill: chartType === 'line' ? false : undefined,
     }));
 
@@ -135,18 +144,29 @@ export function ChartRenderer({ data, chartType }: ChartRendererProps) {
       legend: {
         position: 'top' as const,
         labels: {
-          color: 'gray'
+          color: LEGEND_TEXT,
+          usePointStyle: true,
+          font: { family: 'Inter, system-ui, sans-serif', size: 12 },
         }
+      },
+      tooltip: {
+        backgroundColor: '#0E2A38',
+        titleColor: '#FFFFFF',
+        bodyColor: '#F2F7FA',
+        padding: 10,
+        cornerRadius: 8,
       }
     },
     scales: chartType === 'pie' ? undefined : {
       x: {
-        ticks: { color: 'gray' },
-        grid: { color: 'rgba(200,200,200,0.1)' }
+        ticks: { color: AXIS_TEXT },
+        grid: { display: false },
+        border: { color: GRID_LINE },
       },
       y: {
-        ticks: { color: 'gray' },
-        grid: { color: 'rgba(200,200,200,0.1)' }
+        ticks: { color: AXIS_TEXT },
+        grid: { color: GRID_LINE },
+        border: { display: false },
       }
     }
   };

@@ -183,6 +183,22 @@ export function useAuth(): UseAuthReturn {
     setSessionExpiresAt(null);
     setError(null);
 
+    // Close the active database and forget the "last connection" so the next
+    // account does not inherit this one's connection, schema or auto-reopen
+    // (per-user isolation; the active connection lives in the main process).
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    try {
+      await api?.connections.disconnect();
+    } catch {
+      // Best effort — local session is cleared regardless.
+    }
+    try {
+      localStorage.removeItem('sql_sensi_last_connection_id');
+      localStorage.removeItem('sql_sensi_active_db_path');
+    } catch {
+      // Ignore storage errors (private mode, etc.)
+    }
+
     if (stored?.token) {
       const auth = getAuthBridge();
       await auth?.logout(stored.token).catch(() => {

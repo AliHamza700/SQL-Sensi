@@ -10,12 +10,21 @@
  * - Sessions indexed by token and userId with foreign key cascade
  */
 
+/**
+ * Current auth-DB schema version (PRAGMA user_version).
+ *  0 = V1 (no role column)
+ *  1 = V2 Phase 6 (users.role added; first account promoted to admin)
+ */
+export const AUTH_SCHEMA_VERSION = 1;
+
 export const AUTH_TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL COLLATE NOCASE,
   password_hash TEXT NOT NULL,
   salt TEXT NOT NULL,
+  -- V2 Phase 6: exactly one 'admin' (the first account); everyone else 'standard'.
+  role TEXT NOT NULL DEFAULT 'standard',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   last_login_at TEXT

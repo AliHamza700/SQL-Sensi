@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Database,
@@ -12,37 +12,63 @@ import {
   BarChart3,
   Settings,
   ShieldCheck,
+  ScrollText,
+  Users,
   LogOut,
 } from 'lucide-react';
+import { useAuthContext } from '@/src/contexts';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
   badge?: string;
+  /** Only shown to administrators. */
+  adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
-  { label: 'Database', href: '/database', icon: <Database size={18} /> },
-  { label: 'Schema Explorer', href: '/schema', icon: <Table size={18} /> },
-  { label: 'AI Chat', href: '/chat', icon: <MessageSquare size={18} /> },
+  { label: 'Home', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
+  { label: 'Connections', href: '/database', icon: <Database size={18} /> },
+  { label: 'Ask AI', href: '/chat', icon: <MessageSquare size={18} /> },
   { label: 'SQL Editor', href: '/sql-editor', icon: <Code2 size={18} /> },
+  { label: 'Schema', href: '/schema', icon: <Table size={18} /> },
   { label: 'Results & Charts', href: '/results', icon: <BarChart3 size={18} /> },
+  { label: 'Users', href: '/users', icon: <Users size={18} />, adminOnly: true },
+  { label: 'Audit Log', href: '/audit', icon: <ScrollText size={18} />, adminOnly: true },
   { label: 'Settings', href: '/settings', icon: <Settings size={18} /> },
 ];
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuthContext();
+  const email = user?.email ?? 'Signed out';
+  const isAdmin = user?.role === 'admin';
+  const visibleNav = navItems.filter((item) => !item.adminOnly || isAdmin);
+
+  // Real sign-out: clear the session AND disconnect the active database
+  // (useAuth.logout does both), then go to the login screen. Previously this was
+  // a bare link to /login that left the session and connection intact.
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } finally {
+      router.push('/login');
+    }
+  };
 
   return (
     <aside
       style={{
         width: 'var(--sidebar-width)',
-        backgroundColor: 'var(--color-bg-surface)',
-        borderRight: '1px solid var(--color-border)',
+        backgroundColor: 'var(--color-sidebar-bg)',
+        color: 'var(--color-sidebar-text)',
         display: 'flex',
         flexDirection: 'column',
+        gap: '1.5rem',
+        padding: '1.5rem 1rem',
+        boxSizing: 'border-box',
         height: '100vh',
         position: 'fixed',
         left: 0,
@@ -50,148 +76,123 @@ export const Sidebar: React.FC = () => {
         zIndex: 50,
       }}
     >
-      {/* Brand header */}
-      <div
-        style={{
-          padding: '1.25rem 1rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          borderBottom: '1px solid var(--color-border)',
-        }}
-      >
+      {/* Brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0 0.5rem' }}>
         <div
+          aria-hidden="true"
           style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--color-accent-muted)',
-            border: '1px solid var(--color-accent)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            backgroundColor: 'var(--brand-cream)',
+            color: 'var(--brand-deep)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--color-accent)',
-            fontSize: '1.1rem',
           }}
         >
-          🗄️
+          <Database size={20} strokeWidth={2.2} />
         </div>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: '0.95rem', letterSpacing: '-0.02em', display: 'block' }}>
-            SQL Sensi
-          </span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', display: 'block' }}>
-            AI Database Assistant
-          </span>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontWeight: 700, fontSize: '1.125rem', lineHeight: 1.1 }}>SQL Sensi</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-sidebar-text-muted)' }}>Version 2</span>
         </div>
       </div>
 
-      {/* Navigation items */}
-      <nav
-        style={{
-          flex: 1,
-          padding: '0.75rem 0.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.25rem',
-          overflowY: 'auto',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '0.68rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            color: 'var(--color-text-disabled)',
-            padding: '0.5rem 0.75rem 0.25rem',
-            letterSpacing: '0.05em',
-          }}
-        >
-          Workspace
-        </div>
-
-        {navItems.map((item) => {
+      {/* Navigation */}
+      <nav aria-label="Main" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', overflowY: 'auto' }}>
+        {visibleNav.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
             >
-              <span className="icon-container">
-                {item.icon}
-              </span>
+              <span className="icon-container">{item.icon}</span>
               <span style={{ flex: 1 }}>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* Security indicator badge */}
+      {/* Safety status */}
       <div
         style={{
-          margin: '0.75rem',
           padding: '0.75rem',
-          backgroundColor: 'var(--color-bg-elevated)',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-sidebar-hover)',
+          borderRadius: '12px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.35rem',
+          gap: '0.25rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--color-success)', fontSize: '0.75rem', fontWeight: 600 }}>
-          <ShieldCheck size={14} />
-          <span>Read-Only Mode</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', fontWeight: 600 }}>
+          <ShieldCheck size={14} style={{ color: 'var(--brand-cream)' }} />
+          <span>Read-only mode</span>
         </div>
-        <p style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', margin: 0 }}>
-          Destructive statements (DROP, INSERT, etc.) are strictly blocked.
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-sidebar-text-muted)', margin: 0, lineHeight: 1.4 }}>
+          Queries can read data but never change it.
         </p>
       </div>
 
-      {/* Footer / User Session */}
+      {/* User */}
       <div
         style={{
-          padding: '0.75rem',
-          borderTop: '1px solid var(--color-border)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          gap: '0.625rem',
+          padding: '0.625rem 0.75rem',
+          borderRadius: '12px',
+          backgroundColor: 'var(--color-sidebar-hover)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div
-            style={{
-              width: '26px',
-              height: '26px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-accent)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: '#fff',
-            }}
-          >
-            U
-          </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-            user@local
-          </span>
-        </div>
-        <Link
-          href="/login"
-          title="Sign out"
+        <div
+          aria-hidden="true"
           style={{
-            color: 'var(--color-text-secondary)',
+            width: '32px',
+            height: '32px',
+            flex: 'none',
+            borderRadius: '50%',
+            backgroundColor: 'var(--brand-cream)',
+            color: 'var(--brand-deep)',
             display: 'flex',
             alignItems: 'center',
-            padding: '0.25rem',
+            justifyContent: 'center',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+          }}
+        >
+          {email.charAt(0).toUpperCase()}
+        </div>
+        <span
+          title={email}
+          style={{ flex: 1, minWidth: 0, fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
+          {email}
+        </span>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="sidebar-icon-btn"
+          aria-label="Sign out"
+          title="Sign out"
+          style={{
+            color: 'var(--color-sidebar-text)',
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
           }}
         >
           <LogOut size={16} />
-        </Link>
+        </button>
       </div>
     </aside>
   );

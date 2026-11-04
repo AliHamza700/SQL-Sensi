@@ -20,12 +20,15 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { inferColumnTypes, autoSelectChartType, ChartType } from '@/src/utils/visualization';
+import { paginate } from '@/src/utils/pagination';
 import { ChartRenderer } from '@/src/components/visualization/ChartRenderer';
 
 function ResultsContent() {
   const searchParams = useSearchParams();
   const sql = searchParams.get('sql');
-  
+  /** Connection the SQL was validated for; main refuses to run it anywhere else */
+  const connectionId = searchParams.get('cid');
+
   const [chartType, setChartType] = useState<ChartType>('table');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -42,11 +45,16 @@ function ResultsContent() {
         setLoading(false);
         return;
       }
+      if (!connectionId) {
+        setErrorMsg('This link does not say which database the query is for. Run it again from the SQL Editor.');
+        setLoading(false);
+        return;
+      }
       const electron = window.electronAPI;
       if (!electron) return;
 
       try {
-        const res = await electron.database.executeQuery(sql);
+        const res = await electron.database.executeQuery(sql, connectionId);
         if (res.success) {
           setData(res.data);
           
@@ -64,7 +72,7 @@ function ResultsContent() {
       }
     }
     execute();
-  }, [sql]);
+  }, [sql, connectionId]);
 
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Executing query...</div>;
@@ -73,12 +81,12 @@ function ResultsContent() {
   if (errorMsg) {
     return (
       <div style={{ padding: '2rem' }}>
-        <div style={{ padding: '1rem', backgroundColor: 'var(--color-bg-elevated)', borderLeft: '4px solid #ef4444', borderRadius: 'var(--radius-md)' }}>
-          <strong style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div role="alert" style={{ padding: '1rem', backgroundColor: 'var(--color-danger-muted)', borderRadius: 'var(--radius-lg)' }}>
+          <strong style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <AlertTriangle size={16} /> Execution Error
           </strong> 
           <p style={{ marginTop: '0.5rem' }}>{errorMsg}</p>
-          <pre style={{ marginTop: '1rem', padding: '0.5rem', background: '#000', color: '#fff', fontSize: '0.8rem' }}>{sql}</pre>
+          <pre style={{ marginTop: '1rem', padding: '0.5rem', background: 'var(--color-code-bg)', color: 'var(--color-code-text)', borderRadius: 'var(--radius-md)', whiteSpace: 'pre-wrap', fontSize: '0.8rem' }}>{sql}</pre>
         </div>
       </div>
     );
@@ -87,8 +95,7 @@ function ResultsContent() {
   if (!data) return null;
 
   // Pagination logic
-  const totalPages = Math.ceil(data.rowCount / pageSize);
-  const paginatedRows = data.rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const { rows: paginatedRows, totalPages, firstRow, lastRow } = paginate(data.rows, currentPage, pageSize);
 
   // Export handlers
   const handleExportCSV = async () => {
@@ -103,7 +110,8 @@ function ResultsContent() {
 
   const handleExportJSON = async () => {
     if (!data) return;
-    const jsonStr = JSON.stringify(data, null, 2);
+    const { convertToJSON } = await import('@/src/utils/export');
+    const jsonStr = convertToJSON(data);
     const res = await window.electronAPI!.export.saveData(jsonStr, 'export.json', 'json');
     if (res.success) {
       console.log('Saved JSON to', res.data);
@@ -146,7 +154,7 @@ function ResultsContent() {
         {chartType === 'table' ? (
           <div>
             <div style={{ overflowX: 'auto', maxHeight: '500px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-bg-elevated)', zIndex: 10 }}>
                   <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', color: 'var(--color-text-secondary)' }}>
                     {data.columns.map((col: string) => (
@@ -179,7 +187,7 @@ function ResultsContent() {
             {totalPages > 1 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', fontSize: '0.85rem' }}>
                 <div style={{ color: 'var(--color-text-secondary)' }}>
-                  Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, data.rowCount)} of {data.rowCount} rows
+                  Showing {firstRow} to {lastRow} of {data.rowCount} rows
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <Button 
@@ -208,7 +216,7 @@ function ResultsContent() {
             )}
           </div>
         ) : (
-          <div style={{ backgroundColor: 'var(--color-bg-base)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+          <div style={{ backgroundColor: 'var(--color-bg-surface)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
             <ChartRenderer data={data} chartType={chartType} />
           </div>
         )}
