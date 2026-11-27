@@ -24,23 +24,14 @@ import {
   Loader2
 } from 'lucide-react';
 
-const defaultSQL = `SELECT 
-  c.CustomerId,
-  c.FirstName || ' ' || c.LastName AS CustomerName,
-  ROUND(SUM(i.BillingTotal), 2) AS TotalSpent
-FROM customers c
-JOIN invoices i ON c.CustomerId = i.CustomerId
-GROUP BY c.CustomerId
-ORDER BY TotalSpent DESC
-LIMIT 5;`;
-
 export default function SqlEditorPage() {
   const router = useRouter();
-  
-  const [sql, setSql] = useState(defaultSQL);
+
+  // The editor starts empty; nothing is validated until the user writes SQL.
+  const [sql, setSql] = useState('');
   const { activeConnection } = useDatabaseContext();
   const { user } = useAuth();
-  const [isValidated, setIsValidated] = useState(true);
+  const [isValidated, setIsValidated] = useState(false);
   /** Connection the current SQL was validated against */
   const [validatedFor, setValidatedFor] = useState<string | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -72,6 +63,10 @@ export default function SqlEditorPage() {
     if (!electron) return;
     if (!activeConnection) {
       setErrorMsg('Connect a database first.');
+      return;
+    }
+    if (!sql.trim()) {
+      setErrorMsg('Write a SQL statement first.');
       return;
     }
     const connectionId = activeConnection.connectionId;
@@ -121,6 +116,11 @@ export default function SqlEditorPage() {
     const connectionId = validatedFor ?? activeConnection?.connectionId;
     if (!connectionId) {
       setErrorMsg('Connect a database first.');
+      return;
+    }
+
+    if (!sql.trim()) {
+      setErrorMsg('Write a SQL statement first.');
       return;
     }
 
@@ -232,7 +232,7 @@ export default function SqlEditorPage() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <Badge variant={isValidated ? 'success' : 'warning'} size="sm">
                 <ShieldCheck size={12} style={{ marginRight: '3px' }} />
-                {isValidated ? 'Read-Only Validated' : 'Edited - Needs Revalidation'}
+                {isValidated ? 'Read-Only Validated' : sql.trim() ? 'Edited - Needs Revalidation' : 'Not Validated'}
               </Badge>
             </div>
           }
@@ -240,6 +240,8 @@ export default function SqlEditorPage() {
           <textarea
             value={sql}
             onChange={(e) => handleSqlChange(e.target.value)}
+            placeholder="Write a SQL statement, e.g. SELECT * FROM Customer LIMIT 10;"
+            spellCheck={false}
             rows={8}
             style={{
               width: '100%',

@@ -497,15 +497,17 @@ export type ServiceResult<T> =
 /**
  * The classification of a single SQL statement for policy decisions.
  * `read` is always allowed (subject to the engine's read-only guarantees);
- * `insert`/`update`/`delete` are the only writes in V2 scope; `ddl` covers
+ * `insert`/`update`/`delete` are the data writes; `create` is an additive
+ * schema write (CREATE TABLE / INDEX / VIEW only) used to design a schema from
+ * scratch, and is opt-in like any other write; `ddl` covers
  * CREATE/ALTER/DROP and other schema or destructive statements, which are out
  * of normal V2 scope; `other` is anything that could not be classified and is
  * refused rather than guessed. Produced by a heuristic, not a real parser.
  */
-export type SqlOperation = 'read' | 'insert' | 'update' | 'delete' | 'ddl' | 'other';
+export type SqlOperation = 'read' | 'insert' | 'update' | 'delete' | 'create' | 'ddl' | 'other';
 
 /** The write operations an administrator may individually permit. */
-export type WriteOperation = 'insert' | 'update' | 'delete';
+export type WriteOperation = 'insert' | 'update' | 'delete' | 'create';
 
 /** How to treat an UPDATE/DELETE with no detectable WHERE clause. */
 export type BroadMutationHandling = 'block' | 'confirm' | 'allow';
@@ -604,21 +606,38 @@ export interface AuditEvent {
   userId: string | null;
   connectionId: string | null;
   engine: DatabaseEngine | null;
-  operation: SqlOperation;
+  /** The SQL operation of a write attempt, or `policy_change` for a safety-policy save. */
+  operation: AuditOperation;
   /** Best-effort target table, for display; not a security control. */
   tableName: string | null;
   outcome: AuditOutcome;
   affectedRows: number | null;
   errorCode: string | null;
-  /** SHA-256 hex of the normalized statement text. Never the statement itself. */
+  /** SHA-256 hex of the normalized statement text. Never the statement itself. Empty for a policy change. */
   sqlSha256: string;
   policyVersion: number;
+  /**
+   * Human-readable summary of what changed, for a `policy_change` event
+   * (e.g. "Write operations: off → on; Permitted operations: +CREATE").
+   * Settings only — never SQL or row data. Null for SQL writes.
+   */
+  details?: string | null;
 }
+
+/** What an audit event records: a SQL write attempt, or a change to the safety policy. */
+export type AuditOperation = SqlOperation | 'policy_change';
 
 /** A persisted audit event. */
 export interface AuditRecord extends AuditEvent {
   id: string;
   createdAt: string;
+  /**
+   * Who ran the statement, resolved from `userId` when the log is read (not
+   * stored in audit.db). `null` when there was no signed-in user, or the
+   * account has since been deleted.
+   */
+  userEmail?: string | null;
+  userRole?: UserRole | null;
 }
 
 

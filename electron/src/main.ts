@@ -1,9 +1,15 @@
-import * as dotenv from 'dotenv';
-dotenv.config();
-
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog, protocol, net } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
+import * as fs from 'fs';
+import * as dotenv from 'dotenv';
+
+// Load .env BEFORE any service module is imported (AppConfig reads process.env
+// at import time). In the packaged app, .env is copied into resources/ via
+// electron-builder's extraResources; in dev, dotenv's default (cwd/.env) is used.
+dotenv.config(
+  app.isPackaged ? { path: path.join(process.resourcesPath, '.env') } : undefined
+);
 import { IPC_CHANNELS } from '../../src/config/ipc-channels';
 import { registerAuthHandlers } from './ipc/auth.ipc';
 import { registerDatabaseHandlers } from './ipc/database.ipc';
@@ -19,8 +25,53 @@ import { shutdownConnections } from './connections';
 // ─── Constants ───────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
 const RENDERER_URL = 'http://localhost:3000';
+const APP_SCHEME = 'app';
+const APP_ORIGIN = `${APP_SCHEME}://local`;
 
 let mainWindow: BrowserWindow | null = null;
+
+// Register the custom scheme as privileged BEFORE app is ready so fetch/RSC
+// payloads behave like a normal web origin (not like file://).
+if (!isDev) {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: APP_SCHEME,
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
+        stream: true,
+      },
+    },
+  ]);
+}
+
+function registerAppProtocol(): void {
+  const outDir = path.join(app.getAppPath(), 'out');
+  protocol.handle(APP_SCHEME, async (request) => {
+    const requestUrl = new URL(request.url);
+    let relativePath = decodeURIComponent(requestUrl.pathname);
+    if (relativePath.startsWith('/')) relativePath = relativePath.slice(1);
+    if (!relativePath || relativePath.endsWith('/')) relativePath += 'index.html';
+
+    let absolutePath = path.join(outDir, relativePath);
+    // Keep requests inside the out/ directory.
+    if (!absolutePath.startsWith(outDir)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    // Clean routes without extension: try .html, then folder/index.html.
+    if (!path.extname(absolutePath) && !fs.existsSync(absolutePath)) {
+      if (fs.existsSync(absolutePath + '.html')) {
+        absolutePath += '.html';
+      } else if (fs.existsSync(path.join(absolutePath, 'index.html'))) {
+        absolutePath = path.join(absolutePath, 'index.html');
+      }
+    }
+
+    return net.fetch(url.pathToFileURL(absolutePath).toString());
+  });
+}
 
 // ─── Window Creation ─────────────────────────────────────────
 function createMainWindow(): void {
@@ -50,13 +101,9 @@ function createMainWindow(): void {
     });
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadURL(
-      url.format({
-        pathname: path.join(app.getAppPath(), 'out/index.html'),
-        protocol: 'file:',
-        slashes: true,
-      })
-    );
+    mainWindow.loadURL(`${APP_ORIGIN}/`).catch((err) => {
+      console.error('[Electron] Failed to load packaged renderer:', err?.message ?? err);
+    });
   }
 
   // ── Show gracefully — no white flash ─────────────────────
@@ -76,6 +123,7 @@ function createMainWindow(): void {
   // ── Block navigation away from the app ───────────────────
   mainWindow.webContents.on('will-navigate', (event, navUrl) => {
     if (isDev && navUrl.startsWith(RENDERER_URL)) return;
+    if (!isDev && navUrl.startsWith(APP_ORIGIN)) return;
     event.preventDefault();
     console.warn('[Electron] Blocked navigation to:', navUrl);
   });
@@ -87,10 +135,12 @@ function createMainWindow(): void {
 
 // ─── App Lifecycle ────────────────────────────────────────────
 app.whenReady().then(() => {
+  if (!isDev) registerAppProtocol();
+
   app.on('web-contents-created', (_, contents) => {
     contents.on('will-navigate', (event, navUrl) => {
       if (isDev && navUrl.startsWith(RENDERER_URL)) return;
-      if (navUrl.startsWith('file://')) return;
+      if (!isDev && navUrl.startsWith(APP_ORIGIN)) return;
       event.preventDefault();
     });
   });

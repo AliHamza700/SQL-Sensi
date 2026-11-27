@@ -11,7 +11,7 @@ import type {
   WriteResult,
 } from '@/src/types';
 import { createError } from '@/src/utils/errors';
-import { classifySqlOperation } from '@/src/utils/sql-operation';
+import { classifySqlOperation, isWriteOperation } from '@/src/utils/sql-operation';
 import type { DatabaseAdapter } from './adapters/database-adapter';
 import { createAdapter } from './adapters/registry';
 import { SqliteAdapter } from './adapters/sqlite.adapter';
@@ -170,10 +170,10 @@ export class DatabaseService {
     }
 
     const operation = classifySqlOperation(sql);
-    if (operation !== 'insert' && operation !== 'update' && operation !== 'delete') {
+    if (!isWriteOperation(operation)) {
       return {
         success: false,
-        error: createError('SQL_VALIDATION_ERROR', 'Only INSERT, UPDATE or DELETE statements can be run as writes.'),
+        error: createError('SQL_VALIDATION_ERROR', 'Only INSERT, UPDATE, DELETE or CREATE TABLE/INDEX/VIEW statements can be run as writes.'),
       };
     }
 

@@ -17,7 +17,7 @@ import { ipcMain } from 'electron';
 import type { AuditRecord, ServiceResult, User } from '../../../src/types';
 import { IPC_CHANNELS } from '../../../src/config/ipc-channels';
 import { createError } from '../../../src/utils/errors';
-import { getAuditService } from '../../../src/services/audit/audit.service';
+import { attachUsers, getAuditService } from '../../../src/services/audit/audit.service';
 import { getAuthService } from './auth.ipc';
 
 /** Resolves the caller and requires the admin role, or returns an auth error. */
@@ -45,7 +45,12 @@ export function registerAuditHandlers(): void {
       const user = await requireAdmin(token);
       if (!user.success) return user;
       const n = typeof limit === 'number' && Number.isFinite(limit) ? limit : 100;
-      return audit.list(n);
+      const records = audit.list(n);
+      if (!records.success) return records;
+      // Show WHO ran each statement: resolve the stored user id to the account
+      // email/role. If the user list cannot be read, still return the log.
+      const users = await getAuthService().listUsers();
+      return { success: true, data: attachUsers(records.data, users.success ? users.data : []) };
     }
   );
 
