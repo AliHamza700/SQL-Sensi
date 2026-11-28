@@ -16,7 +16,8 @@ import { ipcMain } from 'electron';
 import type { PolicyDecision, ServiceResult, User, WritePolicy } from '../../../src/types';
 import { IPC_CHANNELS } from '../../../src/config/ipc-channels';
 import { createError } from '../../../src/utils/errors';
-import { getPolicyService, WritePolicyPatch } from '../../../src/services/policy/policy.service';
+import { describePolicyChanges, getPolicyService, WritePolicyPatch } from '../../../src/services/policy/policy.service';
+import { getAuditService } from '../../../src/services/audit/audit.service';
 import { getAuthService } from './auth.ipc';
 
 /** Resolves the authenticated user from a session token, or an auth error. */
@@ -47,7 +48,33 @@ export function registerPolicyHandlers(): void {
     async (_event, token: string, patch: WritePolicyPatch): Promise<ServiceResult<WritePolicy>> => {
       const user = await resolveUser(token);
       if (!user.success) return user;
-      return policy.updatePolicy(user.data, patch ?? {});
+
+      const before = policy.getPolicy();
+      const result = policy.updatePolicy(user.data, patch ?? {});
+
+      // Every save — and every refused attempt — goes into the audit log with
+      // WHO did it and WHAT changed, so changes by different admins are traceable.
+      const changes = result.success ? describePolicyChanges(before, result.data) : [];
+      const denied = !result.success && result.error.code === 'NOT_AUTHORIZED';
+      getAuditService().record({
+        userId: user.data.id,
+        connectionId: null,
+        engine: null,
+        operation: 'policy_change',
+        tableName: null,
+        outcome: result.success ? 'success' : denied ? 'denied' : 'failure',
+        affectedRows: null,
+        errorCode: result.success ? null : result.error.code,
+        sqlSha256: '',
+        policyVersion: result.success ? result.data.version : before.version,
+        details: result.success
+          ? changes.length > 0 ? changes.join('; ') : 'Saved with no setting changed'
+          : denied
+            ? 'Attempted to change the safety policy without administrator rights'
+            : 'The policy change could not be saved',
+      });
+
+      return result;
     }
   );
 

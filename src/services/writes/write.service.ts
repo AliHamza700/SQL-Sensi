@@ -21,7 +21,7 @@ import type {
   WriteResult,
 } from '@/src/types';
 import { createError } from '@/src/utils/errors';
-import { extractTargetTable } from '@/src/utils/sql-operation';
+import { extractTargetTable, isWriteOperation } from '@/src/utils/sql-operation';
 import { getPolicyService, PolicyService } from '@/src/services/policy/policy.service';
 import { databaseService } from '@/src/services/database/database.service';
 import { AuditService, getAuditService, sqlFingerprint } from '@/src/services/audit/audit.service';
@@ -81,7 +81,7 @@ export class WriteService {
 
     // 1. Policy / identity.
     if (!decision.allowed) {
-      const code = ctx.user?.role !== 'admin' && (operation === 'insert' || operation === 'update' || operation === 'delete')
+      const code = ctx.user?.role !== 'admin' && isWriteOperation(operation)
         ? 'NOT_AUTHORIZED'
         : 'POLICY_DENIED';
       audit('denied', null, code);

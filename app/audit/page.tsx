@@ -53,10 +53,11 @@ export default function AuditPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1100px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Write audit log</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Audit log</h1>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', maxWidth: '640px' }}>
-              Every write attempt — allowed, failed or denied — recorded as metadata only. No raw SQL and no row values
-              are stored; each statement is identified by a SHA-256 fingerprint.
+              Every write attempt and every change to the safety policy — allowed, failed or denied — with the account
+              that made it. Writes are recorded as metadata only: no raw SQL and no row values are stored; each statement
+              is identified by a SHA-256 fingerprint.
             </p>
           </div>
           <Button variant="outline" size="sm" icon={<RefreshCw size={14} />} onClick={load} disabled={loading}>
@@ -80,7 +81,7 @@ export default function AuditPage() {
               <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                 <thead style={{ backgroundColor: 'var(--color-bg-elevated)', color: 'var(--color-text-secondary)', textAlign: 'left' }}>
                   <tr>
-                    {['When', 'Outcome', 'Operation', 'Table', 'Rows', 'Engine', 'Error', 'Policy', 'Fingerprint'].map((h) => (
+                    {['When', 'User', 'Outcome', 'Operation', 'Table / Change', 'Rows', 'Engine', 'Error', 'Fingerprint'].map((h) => (
                       <th key={h} style={{ padding: '0.55rem 0.6rem', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -89,17 +90,42 @@ export default function AuditPage() {
                   {records.map((r) => (
                     <tr key={r.id} style={{ borderTop: '1px solid var(--color-border)' }}>
                       <td style={cell} title={r.createdAt}>{new Date(r.createdAt).toLocaleString()}</td>
+                      <td style={cell} title={r.userId ? `User ID: ${r.userId}` : 'No signed-in user'}>
+                        {r.userEmail ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{r.userEmail}</span>
+                            <Badge variant={r.userRole === 'admin' ? 'info' : 'default'} size="sm">{r.userRole ?? 'user'}</Badge>
+                          </span>
+                        ) : r.userId && r.userEmail === null ? (
+                          // Looked up, but the account no longer exists.
+                          <span style={{ color: 'var(--color-text-muted)' }}>Deleted user ({r.userId.slice(0, 8)}…)</span>
+                        ) : r.userId ? (
+                          // Not looked up (e.g. an older main process); show the id rather than guess.
+                          <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{r.userId.slice(0, 8)}…</span>
+                        ) : (
+                          <span style={{ color: 'var(--color-text-muted)' }}>Not signed in</span>
+                        )}
+                      </td>
                       <td style={cell}>
                         <Badge variant={OUTCOME_VARIANT[r.outcome]} size="sm">{r.outcome}</Badge>
                       </td>
-                      <td style={{ ...cell, textTransform: 'uppercase', fontWeight: 600 }}>{r.operation}</td>
-                      <td style={cell}>{r.tableName ?? '—'}</td>
+                      <td style={{ ...cell, textTransform: 'uppercase', fontWeight: 600 }}>
+                        {r.operation === 'policy_change' ? 'Policy change' : r.operation}
+                      </td>
+                      {r.operation === 'policy_change' ? (
+                        <td style={{ ...cell, whiteSpace: 'normal', minWidth: '260px', maxWidth: '420px' }}>
+                          {(r.details ?? '—').split('; ').map((line, i) => (
+                            <div key={i}>{line}</div>
+                          ))}
+                        </td>
+                      ) : (
+                        <td style={cell}>{r.tableName ?? '—'}</td>
+                      )}
                       <td style={{ ...cell, fontFamily: 'var(--font-mono)' }}>{r.affectedRows ?? '—'}</td>
                       <td style={cell}>{r.engine ?? '—'}</td>
                       <td style={{ ...cell, color: r.errorCode ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>{r.errorCode ?? '—'}</td>
-                      <td style={{ ...cell, fontFamily: 'var(--font-mono)' }}>v{r.policyVersion}</td>
-                      <td style={{ ...cell, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }} title={r.sqlSha256}>
-                        {r.sqlSha256.slice(0, 12)}…
+                      <td style={{ ...cell, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }} title={r.sqlSha256 || undefined}>
+                        {r.sqlSha256 ? `${r.sqlSha256.slice(0, 12)}…` : '—'}
                       </td>
                     </tr>
                   ))}
@@ -111,7 +137,7 @@ export default function AuditPage() {
           <Card title="No events yet">
             <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
               <ShieldAlert size={28} style={{ color: 'var(--color-text-muted)' }} />
-              No write attempts have been recorded. Events appear here once writes are enabled and run.
+              Nothing has been recorded yet. Events appear here when the safety policy is changed or a write is attempted.
             </div>
           </Card>
         )}

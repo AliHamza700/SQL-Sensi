@@ -10,7 +10,13 @@ import { useAuth } from '@/src/hooks/useAuth';
 import { readSession } from '@/src/utils/session-storage';
 import type { WritePolicy, WriteOperation, BroadMutationHandling } from '@/src/types';
 
-const WRITE_OPS: WriteOperation[] = ['insert', 'update', 'delete'];
+const WRITE_OPS: WriteOperation[] = ['insert', 'update', 'delete', 'create'];
+const OP_HINTS: Record<WriteOperation, string> = {
+  insert: 'Add rows',
+  update: 'Change rows',
+  delete: 'Remove rows',
+  create: 'CREATE TABLE, CREATE INDEX and CREATE VIEW (design a schema). ALTER and DROP stay blocked.',
+};
 const BROAD_MODES: { value: BroadMutationHandling; label: string; hint: string }[] = [
   { value: 'block', label: 'Block', hint: 'Refuse an UPDATE/DELETE with no WHERE clause.' },
   { value: 'confirm', label: 'Strong confirm', hint: 'Allow only after an extra confirmation.' },
@@ -22,6 +28,7 @@ export default function SettingsPage() {
   const isAdmin = user?.role === 'admin';
 
   const [policy, setPolicy] = useState<WritePolicy | null>(null);
+  const [userEmails, setUserEmails] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<WritePolicy | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,8 +53,14 @@ export default function SettingsPage() {
     } else {
       setError(res.error.message);
     }
+    // Account emails, to show which administrator last changed the policy.
+    // The user list is admin-only; other users simply don't see the name.
+    if (isAdmin) {
+      const users = await api.users.list(token);
+      if (users.success) setUserEmails(Object.fromEntries(users.data.map((u) => [u.id, u.email])));
+    }
     setLoading(false);
-  }, [token]);
+  }, [token, isAdmin]);
 
   useEffect(() => {
     if (!authLoading) void load();
@@ -129,7 +142,7 @@ export default function SettingsPage() {
             {/* Master switch */}
             <Card
               title="Database writes"
-              subtitle="INSERT / UPDATE / DELETE. Off by default; the engine still enforces the DB account's own privileges."
+              subtitle="INSERT / UPDATE / DELETE, and CREATE TABLE / INDEX / VIEW. Off by default; the engine still enforces the DB account's own privileges."
               headerAction={
                 <Badge variant={draft.enableWrites ? 'warning' : 'default'}>
                   {draft.enableWrites ? 'Writes enabled' : 'Read-only'}
@@ -139,7 +152,7 @@ export default function SettingsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <Toggle
                   label="Enable write operations"
-                  description="When off, every INSERT/UPDATE/DELETE is denied regardless of other settings."
+                  description="When off, every INSERT/UPDATE/DELETE/CREATE is denied regardless of other settings."
                   checked={draft.enableWrites}
                   disabled={!isAdmin}
                   onChange={(v) => patch({ enableWrites: v })}
@@ -154,6 +167,7 @@ export default function SettingsPage() {
                       return (
                         <button
                           key={op}
+                          title={OP_HINTS[op]}
                           type="button"
                           disabled={!isAdmin}
                           onClick={() => toggleOp(op)}
@@ -283,7 +297,9 @@ export default function SettingsPage() {
                 {saving ? 'Saving…' : 'Save policy'}
               </Button>
               <span style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
-                {policy?.updatedAt ? `Last changed ${new Date(policy.updatedAt).toLocaleString()}` : ''}
+                {policy?.updatedByUserId
+                  ? `Last changed ${new Date(policy.updatedAt).toLocaleString()} by ${userEmails[policy.updatedByUserId] ?? 'an administrator'}`
+                  : ''}
               </span>
             </div>
           </>

@@ -34,7 +34,7 @@ import {
 } from '@/src/utils/sql-operation';
 
 const POLICY_FILE = 'policy.json';
-const ALL_WRITE_OPS: WriteOperation[] = ['insert', 'update', 'delete'];
+const ALL_WRITE_OPS: WriteOperation[] = ['insert', 'update', 'delete', 'create'];
 
 /** The safe starting policy: writes off, strongest safeguards on. */
 export function defaultWritePolicy(): WritePolicy {
@@ -52,6 +52,42 @@ export function defaultWritePolicy(): WritePolicy {
     updatedAt: new Date(0).toISOString(),
     updatedByUserId: null,
   };
+}
+
+const onOff = (v: boolean): string => (v ? 'on' : 'off');
+
+/**
+ * Human-readable list of what differs between two policies, for the audit log
+ * (e.g. ["Write operations: off → on", "Permitted operations: +CREATE"]).
+ * Empty when no setting changed. Settings only — the policy holds no secrets.
+ */
+export function describePolicyChanges(before: WritePolicy, after: WritePolicy): string[] {
+  const changes: string[] = [];
+  const flag = (label: string, a: boolean, b: boolean) => {
+    if (a !== b) changes.push(`${label}: ${onOff(a)} → ${onOff(b)}`);
+  };
+  const value = (label: string, a: string | number, b: string | number) => {
+    if (a !== b) changes.push(`${label}: ${a} → ${b}`);
+  };
+
+  flag('Write operations', before.enableWrites, after.enableWrites);
+
+  const added = after.allowedOperations.filter((op) => !before.allowedOperations.includes(op));
+  const removed = before.allowedOperations.filter((op) => !after.allowedOperations.includes(op));
+  if (added.length || removed.length) {
+    const parts = [...added.map((op) => `+${op.toUpperCase()}`), ...removed.map((op) => `-${op.toUpperCase()}`)];
+    changes.push(`Permitted operations: ${parts.join(', ')}`);
+  }
+
+  flag('Require SQL preview', before.requireSqlPreview, after.requireSqlPreview);
+  flag('Require confirmation', before.requireWriteConfirmation, after.requireWriteConfirmation);
+  value('No-WHERE UPDATE/DELETE', before.broadMutationHandling, after.broadMutationHandling);
+  flag('Use transaction', before.useTransaction, after.useTransaction);
+  value('Max rows', before.maxRows, after.maxRows);
+  value('Statement timeout (ms)', before.statementTimeoutMs, after.statementTimeoutMs);
+  flag('Audit logging', before.audit.enabled, after.audit.enabled);
+  value('Audit retention (days)', before.audit.retentionDays, after.audit.retentionDays);
+  return changes;
 }
 
 /** Fields a caller may change. Everything else on WritePolicy is derived/managed. */
@@ -156,14 +192,14 @@ export class PolicyService {
     }
 
     if (operation === 'ddl') {
-      return { ...base, reason: 'Schema and destructive statements (CREATE, ALTER, DROP, …) are outside Version 2 scope.' };
+      return { ...base, reason: 'ALTER, DROP and other schema or destructive statements are outside Version 2 scope. Only CREATE TABLE, CREATE INDEX and CREATE VIEW can run, when an administrator permits CREATE.' };
     }
 
     if (operation === 'other') {
       return { ...base, reason: 'This statement could not be classified as a supported read or write, so it is refused.' };
     }
 
-    // From here, operation is insert/update/delete.
+    // From here, operation is insert/update/delete/create.
     if (user?.role !== 'admin') {
       return { ...base, reason: 'Only an administrator can run write operations.' };
     }

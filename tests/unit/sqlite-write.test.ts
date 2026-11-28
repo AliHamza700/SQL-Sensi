@@ -40,6 +40,30 @@ describe('SqliteAdapter.executeWrite (V2 Phase 7)', () => {
     expect(del.success && del.data.affectedRows).toBe(2);
   });
 
+  it('creates related tables and an index from scratch (CREATE)', async () => {
+    const dept = await adapter.executeWrite(
+      'CREATE TABLE Department (DepartmentId INTEGER PRIMARY KEY, Name TEXT NOT NULL UNIQUE)'
+    );
+    expect(dept.success).toBe(true);
+    const doc = await adapter.executeWrite(
+      'CREATE TABLE Doctor (DoctorId INTEGER PRIMARY KEY, Name TEXT NOT NULL, ' +
+        'DepartmentId INTEGER NOT NULL REFERENCES Department (DepartmentId))'
+    );
+    expect(doc.success).toBe(true);
+    const idx = await adapter.executeWrite('CREATE INDEX idx_doctor_department ON Doctor (DepartmentId)');
+    expect(idx.success).toBe(true);
+
+    const schema = await adapter.getSchema();
+    expect(schema.success).toBe(true);
+    if (schema.success) {
+      expect(schema.data.tables.map((t) => t.name)).toEqual(expect.arrayContaining(['Department', 'Doctor']));
+      expect(schema.data.relationships).toContainEqual(
+        expect.objectContaining({ fromTable: 'Doctor', fromColumn: 'DepartmentId', toTable: 'Department', toColumn: 'DepartmentId' })
+      );
+      expect(schema.data.indexes.map((i) => i.name)).toContain('idx_doctor_department');
+    }
+  });
+
   it('reports zero affected rows without error when nothing matches', async () => {
     const res = await adapter.executeWrite('DELETE FROM products WHERE id = 9999');
     expect(res.success).toBe(true);

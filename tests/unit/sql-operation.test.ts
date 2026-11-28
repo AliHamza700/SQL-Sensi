@@ -3,7 +3,23 @@ import {
   hasWhereClause,
   isBroadMutation,
   stripSqlNoise,
+  extractTargetTable,
+  isWriteOperation,
 } from '../../src/utils/sql-operation';
+
+describe('create operation helpers', () => {
+  it('treats create as a write operation', () => {
+    expect(isWriteOperation('create')).toBe(true);
+    expect(isWriteOperation('ddl')).toBe(false);
+  });
+
+  it('extracts the target table of a CREATE for the audit log', () => {
+    expect(extractTargetTable('CREATE TABLE Doctor (id INT)', 'create')).toBe('Doctor');
+    expect(extractTargetTable('CREATE TABLE IF NOT EXISTS "Patient" (id INT)', 'create')).toBe('Patient');
+    expect(extractTargetTable('CREATE INDEX idx_appt_doctor ON Appointment (DoctorId)', 'create')).toBe('Appointment');
+    expect(extractTargetTable('CREATE VIEW active_doctors AS SELECT 1', 'create')).toBe('active_doctors');
+  });
+});
 
 describe('classifySqlOperation', () => {
   it('classifies reads', () => {
@@ -20,9 +36,22 @@ describe('classifySqlOperation', () => {
 
   it('classifies schema/destructive statements as ddl', () => {
     expect(classifySqlOperation('DROP TABLE t')).toBe('ddl');
-    expect(classifySqlOperation('CREATE TABLE t (id INT)')).toBe('ddl');
     expect(classifySqlOperation('ALTER TABLE t ADD COLUMN c INT')).toBe('ddl');
     expect(classifySqlOperation('TRUNCATE TABLE t')).toBe('ddl');
+    expect(classifySqlOperation('CREATE TRIGGER trg AFTER INSERT ON t BEGIN SELECT 1; END')).toBe('other'); // multi-statement body
+    expect(classifySqlOperation('CREATE VIRTUAL TABLE v USING fts5(body)')).toBe('ddl');
+    expect(classifySqlOperation('CREATE DATABASE shop')).toBe('ddl');
+    expect(classifySqlOperation('CREATE TABLESPACE ts')).toBe('ddl');
+  });
+
+  it('classifies additive CREATE TABLE / INDEX / VIEW as create', () => {
+    expect(classifySqlOperation('CREATE TABLE t (id INT)')).toBe('create');
+    expect(classifySqlOperation('create table if not exists t (id int)')).toBe('create');
+    expect(classifySqlOperation('CREATE TEMP TABLE t (id INT)')).toBe('create');
+    expect(classifySqlOperation('CREATE INDEX idx_t ON t (id)')).toBe('create');
+    expect(classifySqlOperation('CREATE UNIQUE INDEX idx_t ON t (id)')).toBe('create');
+    expect(classifySqlOperation('CREATE VIEW v AS SELECT * FROM t')).toBe('create');
+    expect(classifySqlOperation('CREATE TABLE t (id INT); DROP TABLE x')).toBe('other'); // multi-statement
   });
 
   it('refuses ambiguous or unsupported statements as other', () => {

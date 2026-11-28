@@ -10,7 +10,7 @@
  * reads, and Phase 7 re-checks writes immediately before execution.
  */
 
-import type { SqlOperation } from '@/src/types';
+import type { SqlOperation, WriteOperation } from '@/src/types';
 
 /**
  * Removes comments and the contents of string / quoted-identifier literals,
@@ -117,6 +117,9 @@ export function classifySqlOperation(sql: string): SqlOperation {
     case 'delete':
       return 'delete';
     case 'create':
+      // Additive schema statements are their own, separately permitted write.
+      // Everything else (CREATE TRIGGER, VIRTUAL TABLE, …) stays plain DDL.
+      return /^create\s+(temp\s+|temporary\s+)?(table|(unique\s+)?index|view)\b/i.test(body) ? 'create' : 'ddl';
     case 'alter':
     case 'drop':
     case 'truncate':
@@ -155,9 +158,9 @@ export function isBroadMutation(sql: string, operation: SqlOperation): boolean {
   return !hasWhereClause(sql);
 }
 
-/** Convenience: is this statement one of the V2-scope write operations? */
-export function isWriteOperation(operation: SqlOperation): operation is 'insert' | 'update' | 'delete' {
-  return operation === 'insert' || operation === 'update' || operation === 'delete';
+/** Convenience: is this statement one of the permitted-by-policy write operations? */
+export function isWriteOperation(operation: SqlOperation): operation is WriteOperation {
+  return operation === 'insert' || operation === 'update' || operation === 'delete' || operation === 'create';
 }
 
 /**
@@ -173,6 +176,14 @@ export function extractTargetTable(sql: string, operation: SqlOperation): string
     match = /\bupdate\s+([`"\w.]+)/i.exec(cleaned);
   } else if (operation === 'delete') {
     match = /\bdelete\s+from\s+([`"\w.]+)/i.exec(cleaned);
+  } else if (operation === 'create') {
+    // CREATE TABLE/VIEW name, or CREATE INDEX name ON table (reports the table).
+    // Matched on the raw text so a quoted name like "Patient" survives; the
+    // statement was already classified on the cleaned text.
+    const raw = sql.trim();
+    match =
+      /^create\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?[`"\w.]+\s+on\s+([`"\w.]+)/i.exec(raw) ??
+      /^create\s+(?:temp\s+|temporary\s+)?(?:table|view)\s+(?:if\s+not\s+exists\s+)?([`"\w.]+)/i.exec(raw);
   }
   if (!match) return null;
   const name = match[1].replace(/[`"]/g, '').trim();

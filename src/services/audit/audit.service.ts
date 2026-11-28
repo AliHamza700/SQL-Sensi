@@ -12,7 +12,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomUUID, createHash } from 'node:crypto';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import type { AuditEvent, AuditRecord, ServiceResult } from '@/src/types';
+import type { AuditEvent, AuditRecord, ServiceResult, User } from '@/src/types';
 import { AppConfig } from '@/src/config';
 import { createError } from '@/src/utils/errors';
 
@@ -58,6 +58,12 @@ export class AuditService {
     if (!this.db) {
       this.db = new DatabaseSync(this.dbPath);
       this.db.exec(AUDIT_TABLE_SQL);
+      // Migration: `details` (policy-change summary) was added after the first
+      // release; add it to existing audit.db files without touching old rows.
+      const columns = this.db.prepare('PRAGMA table_info(audit_events)').all() as Array<{ name: string }>;
+      if (!columns.some((c) => c.name === 'details')) {
+        this.db.exec('ALTER TABLE audit_events ADD COLUMN details TEXT');
+      }
     }
   }
 
@@ -75,8 +81,8 @@ export class AuditService {
       const createdAt = new Date().toISOString();
       db.prepare(`
         INSERT INTO audit_events
-          (id, created_at, user_id, connection_id, engine, operation, table_name, outcome, affected_rows, error_code, sql_sha256, policy_version)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, created_at, user_id, connection_id, engine, operation, table_name, outcome, affected_rows, error_code, sql_sha256, policy_version, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         createdAt,
@@ -89,9 +95,10 @@ export class AuditService {
         event.affectedRows,
         event.errorCode,
         event.sqlSha256,
-        event.policyVersion
+        event.policyVersion,
+        event.details ?? null
       );
-      return { success: true, data: { ...event, id, createdAt } };
+      return { success: true, data: { ...event, details: event.details ?? null, id, createdAt } };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown audit error';
       return { success: false, error: createError('DATABASE_ERROR', 'Failed to record the audit event.', message) };
@@ -131,6 +138,19 @@ export class AuditService {
   }
 }
 
+/**
+ * Adds the account email and role to each record by matching `userId` against
+ * the given users, so the audit viewer can show WHO ran each statement. A
+ * record whose user no longer exists gets `userEmail: null`; its `userId` stays.
+ */
+export function attachUsers(records: AuditRecord[], users: Pick<User, 'id' | 'email' | 'role'>[]): AuditRecord[] {
+  const byId = new Map(users.map((u) => [u.id, u]));
+  return records.map((r) => {
+    const u = r.userId ? byId.get(r.userId) : undefined;
+    return { ...r, userEmail: u?.email ?? null, userRole: u?.role ?? null };
+  });
+}
+
 function toRecord(row: Record<string, unknown>): AuditRecord {
   return {
     id: String(row.id),
@@ -145,6 +165,7 @@ function toRecord(row: Record<string, unknown>): AuditRecord {
     errorCode: row.error_code === null ? null : String(row.error_code),
     sqlSha256: String(row.sql_sha256),
     policyVersion: Number(row.policy_version),
+    details: row.details === null || row.details === undefined ? null : String(row.details),
   };
 }
 
