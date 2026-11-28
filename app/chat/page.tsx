@@ -4,11 +4,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppLayout } from '@/src/components/layout/AppLayout';
 import { Card } from '@/src/components/ui/Card';
 import { AiAnswerMeta, ChatMessage, Conversation, ConversationMessage, DatabaseEngine } from '@/src/types';
-import { Send, Bot, User, Database, Zap, Search, MessageSquare, Plus, Trash2, Edit2, Check, AlertTriangle, BookOpen, HelpCircle } from 'lucide-react';
+import { Send, Bot, User, Database, Zap, Search, MessageSquare, Plus, Trash2, Edit2, Check, AlertTriangle, BookOpen, HelpCircle, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useDatabaseContext } from '@/src/contexts/DatabaseContext';
 import { readSession } from '@/src/utils/session-storage';
 
 const ENGINE_SHORT: Record<DatabaseEngine, string> = { sqlite: 'SQLite', mysql: 'MySQL', postgresql: 'PostgreSQL' };
+
+/** localStorage key for the collapsed state of the conversation sidebar */
+const SIDEBAR_KEY = 'sqlsensi.chat.sidebarCollapsed';
+
+const iconButton: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '6px',
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)',
+};
 
 /** Current session token for per-user history calls; empty when signed out. */
 const authToken = (): string => readSession()?.token ?? '';
@@ -84,6 +92,19 @@ export default function ChatPage() {
 
   // History state
   const [conversations, setConversations] = useState<Conversation[]>([]);
+
+  // Collapsible "Recent Conversations" sidebar; the choice is remembered across visits.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    try { setSidebarCollapsed(localStorage.getItem(SIDEBAR_KEY) === '1'); } catch { /* storage unavailable */ }
+  }, []);
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0'); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editTitleText, setEditTitleText] = useState('');
@@ -343,7 +364,23 @@ export default function ChatPage() {
       <div style={{ display: 'flex', height: '100%', gap: '1.5rem' }}>
         
         {/* Sidebar History */}
-        <div style={{ width: '260px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {sidebarCollapsed ? (
+        <div style={{ width: '48px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            onClick={startNewConversation}
+            className="solid-hover"
+            title="New Chat"
+            aria-label="New Chat"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', background: 'var(--color-accent)', color: 'var(--color-on-accent)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+          >
+            <Plus size={18} />
+          </button>
+          <button onClick={toggleSidebar} className="hover-row" style={iconButton} title="Show recent conversations" aria-label="Show recent conversations" aria-expanded={false}>
+            <PanelLeftOpen size={18} />
+          </button>
+        </div>
+        ) : (
+        <div style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <button
             onClick={startNewConversation}
             className="solid-hover"
@@ -353,7 +390,12 @@ export default function ChatPage() {
           </button>
 
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Recent Conversations</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+              <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', letterSpacing: '0.05em', margin: 0 }}>Recent Conversations</h3>
+              <button onClick={toggleSidebar} className="hover-row" style={iconButton} title="Hide recent conversations" aria-label="Hide recent conversations" aria-expanded={true}>
+                <PanelLeftClose size={16} />
+              </button>
+            </div>
             {conversations.length === 0 && <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>No history yet.</p>}
             
             {conversations.map(conv => (
@@ -403,6 +445,7 @@ export default function ChatPage() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Chat Area */}
         <Card style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
