@@ -3,8 +3,9 @@ const nextConfig = {
   // Output as static HTML for Electron packaging
   output: 'export',
 
-  // Allow Electron to serve Next.js pages
-  assetPrefix: process.env.NODE_ENV === 'production' ? '.' : undefined,
+  // Emit route folders (out/login/index.html) so the custom app:// protocol
+  // handler in Electron can resolve clean URLs like app://local/login/.
+  trailingSlash: true,
 
   // Disable image optimization for Electron (uses file:// protocol in prod)
   images: {

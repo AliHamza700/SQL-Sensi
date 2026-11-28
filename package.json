@@ -25,19 +25,20 @@
     "eval:ai": "tsx tests/ai/ai-evaluator.ts"
   },
   "dependencies": {
+    "dotenv": "^18.0.5",
+    "groq-sdk": "^1.6.0",
+    "mysql2": "3.24.5",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
     "chart.js": "^4.4.0",
     "clsx": "^2.1.0",
     "framer-motion": "^14.7.1",
-    "groq-sdk": "^1.6.0",
     "lucide-react": "^0.395.0",
-    "mysql2": "3.24.5",
     "next": "^14.2.0",
-    "pg": "8.23.1",
     "react": "^18.3.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.3.0"
-  },
-  "devDependencies": {
+    "react-dom": "^18.3.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
     "@types/pg": "8.23.1",
@@ -47,8 +48,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",
-    "dotenv": "^18.0.5",
-    "electron": "^35.7.5",
+    "electron": "42.11.18",
     "electron-builder": "^24.9.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",
@@ -59,6 +59,12 @@
     "tsx": "^4.23.15",
     "typescript": "^5.4.0",
     "wait-on": "^7.2.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.10": "8.5.32",
+      "glob@>=10.0.0 <10.5.0": "10.5.0"
+    }
   },
   "build": {
     "appId": "com.sqlsensi.app",
@@ -72,6 +78,12 @@
       "out/**/*",
       "public/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
     ],
     "extraMetadata": {
       "main": "electron-out/electron/src/main.js"

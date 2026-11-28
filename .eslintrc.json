@@ -27,6 +27,9 @@
   "ignorePatterns": [
     "node_modules/",
     ".next/",
+    "out/",
+    "coverage/",
+    "data/",
     "dist/",
     "electron-out/",
     "electron/dist/",
